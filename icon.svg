@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2D3F8A"/>
+      <stop offset="100%" stop-color="#1E2660"/>
+    </linearGradient>
+    <linearGradient id="tube" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6B80CC"/>
+      <stop offset="100%" stop-color="#4A5EAE"/>
+    </linearGradient>
+    <linearGradient id="tube2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5A70C2"/>
+      <stop offset="100%" stop-color="#3D52A0"/>
+    </linearGradient>
+    <linearGradient id="lens" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7EC8E3"/>
+      <stop offset="100%" stop-color="#2E9E76"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#0a1040" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="1024" height="1024" rx="230" fill="url(#bg)"/>
+
+  <!-- Subtle grid dots in background -->
+  <g opacity="0.08" fill="#ffffff">
+    <circle cx="200" cy="200" r="6"/><circle cx="340" cy="200" r="6"/><circle cx="480" cy="200" r="6"/>
+    <circle cx="620" cy="200" r="6"/><circle cx="760" cy="200" r="6"/>
+    <circle cx="200" cy="340" r="6"/><circle cx="340" cy="340" r="6"/><circle cx="480" cy="340" r="6"/>
+    <circle cx="620" cy="340" r="6"/><circle cx="760" cy="340" r="6"/>
+    <circle cx="200" cy="480" r="6"/><circle cx="340" cy="480" r="6"/>
+    <circle cx="620" cy="480" r="6"/><circle cx="760" cy="480" r="6"/>
+    <circle cx="200" cy="620" r="6"/><circle cx="340" cy="620" r="6"/><circle cx="480" cy="620" r="6"/>
+    <circle cx="620" cy="620" r="6"/><circle cx="760" cy="620" r="6"/>
+    <circle cx="200" cy="760" r="6"/><circle cx="340" cy="760" r="6"/><circle cx="480" cy="760" r="6"/>
+    <circle cx="620" cy="760" r="6"/><circle cx="760" cy="760" r="6"/>
+  </g>
+
+  <!-- Periscope shape (filter for shadow) -->
+  <g filter="url(#shadow)">
+
+    <!-- Vertical tube (main body) -->
+    <rect x="430" y="280" width="110" height="420" rx="28" fill="url(#tube2)"/>
+    <!-- Vertical tube highlight -->
+    <rect x="430" y="280" width="36" height="420" rx="18" fill="rgba(255,255,255,0.10)"/>
+
+    <!-- Horizontal top tube -->
+    <rect x="380" y="240" width="264" height="110" rx="28" fill="url(#tube)"/>
+    <!-- Horizontal tube highlight -->
+    <rect x="380" y="240" width="264" height="36" rx="18" fill="rgba(255,255,255,0.12)"/>
+
+    <!-- Corner connector (fills the join) -->
+    <rect x="430" y="240" width="110" height="110" rx="0" fill="#4A5EAE"/>
+    <rect x="430" y="270" width="110" height="80" fill="#4A5EAE"/>
+
+    <!-- Eyepiece cap (top right) -->
+    <rect x="608" y="220" width="64" height="150" rx="20" fill="#3D52A0"/>
+    <rect x="616" y="220" width="20" height="150" rx="10" fill="rgba(255,255,255,0.10)"/>
+
+    <!-- Lens circle at top-right -->
+    <circle cx="640" cy="205" r="44" fill="url(#lens)"/>
+    <circle cx="640" cy="205" r="44" fill="none" stroke="#ffffff" stroke-width="6" opacity="0.25"/>
+    <!-- Lens inner detail -->
+    <circle cx="640" cy="205" r="28" fill="rgba(255,255,255,0.15)"/>
+    <circle cx="628" cy="193" r="9" fill="rgba(255,255,255,0.35)"/>
+
+    <!-- Bottom base/foot -->
+    <rect x="408" y="672" width="154" height="56" rx="24" fill="#3A4E96"/>
+    <rect x="370" y="710" width="230" height="42" rx="18" fill="#2D3F8A"/>
+
+    <!-- Mirror line (45 degrees inside corner, visible as a gleam) -->
+    <line x1="440" y1="340" x2="530" y2="250" stroke="rgba(255,255,255,0.18)" stroke-width="10" stroke-linecap="round"/>
+
+  </g>
+
+  <!-- Eye / view lines radiating from lens (suggesting "seeing") -->
+  <g stroke="#7EC8E3" stroke-width="5" stroke-linecap="round" opacity="0.5">
+    <line x1="692" y1="180" x2="740" y2="155"/>
+    <line x1="700" y1="205" x2="752" y2="205"/>
+    <line x1="692" y1="230" x2="740" y2="255"/>
+  </g>
+</svg>
