@@ -46,7 +46,7 @@ function EpicRow({ init, epic, zoom, nowWeek, ctxOpen, showTimeline, onMenu, onS
         <div className="name-main">
           <div className="name-row">
             <span className="name-txt">{epic.name}</span>
-            <a className="ticket" href="#" onClick={(e) => e.preventDefault()} title={epic.ticket}>
+            <a className="ticket" href="#" onClick={(e) => { e.preventDefault(); window.openUrl(epic.ticketUrl); }} title={epic.ticket} style={{ opacity: epic.ticketUrl ? 1 : 0.5 }}>
               <Icon name="external" size={10} />{epic.ticket}
             </a>
             <MenuBtn open={ctxOpen} onClick={(e) => onMenu(e, "epic", init.id, epic.id, epic.name)} />
@@ -75,23 +75,44 @@ function EpicRow({ init, epic, zoom, nowWeek, ctxOpen, showTimeline, onMenu, onS
   );
 }
 
+/* Right-pane timeline rows (Jira two-pane layout): just the timeline cell,
+   rendered as a standalone fixed-height row so it lines up with the matching
+   left-pane row. */
+function InitTLRow({ init, zoom, nowWeek, onResize }) {
+  return (
+    <div className="rp-row init">
+      <GridBg zoom={zoom} nowWeek={nowWeek} />
+      <div className="tl-track"><TimelineBar item={init} kind="initiative" onChange={(r) => onResize(init.id, r)} /></div>
+    </div>
+  );
+}
+
+function EpicTLRow({ init, epic, zoom, nowWeek, onResize }) {
+  return (
+    <div className="rp-row epic">
+      <GridBg zoom={zoom} nowWeek={nowWeek} />
+      <div className="tl-track"><TimelineBar item={epic} kind="epic" onChange={(r) => onResize(init.id, epic.id, r)} /></div>
+    </div>
+  );
+}
+
 function TimelineHeader({ zoom, nowWeek, onWeekHover }) {
   const weeks = window.TL.weeks;
+  const COL_W = window.COL_W;
   if (zoom === "monthly") {
     const groups = window.monthGroups();
     return (
-      <div className="wk-strip" style={{ gridTemplateColumns: groups.map(g => g.weeks + "fr").join(" ") }}>
+      <div className="wk-strip" style={{ gridTemplateColumns: groups.map(g => (g.weeks * COL_W) + "px").join(" ") }}>
         {groups.map((g, i) => (
           <div key={i} className="wk-cell">
             <span className="wk-n">{g.label}</span>
-            <span className="wk-d">{g.weeks} weeks</span>
           </div>
         ))}
       </div>
     );
   }
   return (
-    <div className="wk-strip" style={{ gridTemplateColumns: `repeat(${weeks}, 1fr)` }}>
+    <div className="wk-strip" style={{ gridTemplateColumns: `repeat(${weeks}, ${COL_W}px)` }}>
       {Array.from({ length: weeks }).map((_, i) => (
         <div
           key={i}
@@ -99,7 +120,7 @@ function TimelineHeader({ zoom, nowWeek, onWeekHover }) {
           onMouseEnter={(e) => onWeekHover(e.currentTarget.getBoundingClientRect(), i)}
           onMouseLeave={() => onWeekHover(null, null)}
         >
-          <span className="wk-n">W{i + 1}</span>
+          <span className="wk-n">W{window.isoWeekNum(window.weekMonday(i))}</span>
           <span className="wk-d">{window.weekLabel(i)}</span>
         </div>
       ))}
@@ -175,20 +196,30 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
     setFilter(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
   }
 
-  return (
-    <div className="overview" data-barstyle={barStyle} data-timeline={showTimeline ? "on" : "off"}>
+  const tlW = window.TL.weeks * window.COL_W;
+  const headRef = React.useRef(null);
+  // keep the (clipped) week-header track in sync with the body's horizontal scroll
+  function syncScroll(e) {
+    if (headRef.current) headRef.current.scrollLeft = e.currentTarget.scrollLeft;
+  }
+
+  const statusFilterBtn = (
+    <button className={"h-status-filter" + (filtering ? " active" : "")}
+      onClick={(e) => setFmenu({ rect: e.currentTarget.getBoundingClientRect() })}>
+      Status
+      {filtering ? <span className="h-filter-count">{filter.length}</span> : <Icon name="filter" size={11} />}
+    </button>
+  );
+
+  // ---- single-grid layout (timeline hidden) ----
+  function renderFlat() {
+    return (
       <div className="ov-grid">
         <div className="ov-head">
           <div className="h-lbl h-name">Initiative / epic</div>
           <div className="h-lbl"></div>
-          <button className={"h-status-filter" + (filtering ? " active" : "")}
-            onClick={(e) => setFmenu({ rect: e.currentTarget.getBoundingClientRect() })}>
-            Status
-            {filtering ? <span className="h-filter-count">{filter.length}</span> : <Icon name="filter" size={11} />}
-          </button>
-          {showTimeline && <TimelineHeader zoom={zoom} nowWeek={nowWeek} onWeekHover={onWeekHover} />}
+          {statusFilterBtn}
         </div>
-
         {visibleInits.map(init => {
           const epics = visibleEpics(init);
           const expanded = filtering ? true : init.open;
@@ -197,7 +228,7 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
             <InitiativeRow
               init={init} zoom={zoom} nowWeek={nowWeek}
               ctxOpen={ctx && ctx.kind === "init" && ctx.initId === init.id}
-              showTimeline={showTimeline}
+              showTimeline={false}
               onToggle={handlers.toggleOpen} onMenu={onMenu} onStatus={handlers.openStatus}
               onResize={handlers.resizeInit}
             />
@@ -207,7 +238,7 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
                   <EpicRow
                     key={epic.id} init={init} epic={epic} zoom={zoom} nowWeek={nowWeek}
                     ctxOpen={ctx && ctx.kind === "epic" && ctx.epicId === epic.id}
-                    showTimeline={showTimeline}
+                    showTimeline={false}
                     onMenu={onMenu} onStatus={handlers.openStatus}
                     onResize={handlers.resizeEpic} onAddAssignee={onAddAssignee}
                   />
@@ -222,7 +253,6 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
           </React.Fragment>
           );
         })}
-
         {!filtering && (
           <button className="add-initiative" onClick={handlers.openAddInitiative}>
             <Icon name="plus" size={15} />Add initiative
@@ -232,6 +262,106 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
           <div className="ov-empty">Nothing matches the selected status{filter.length > 1 ? "es" : ""} right now.</div>
         )}
       </div>
+    );
+  }
+
+  // ---- two-pane layout (Jira pattern): fixed left pane + independently
+  //      scrolling timeline pane that is clipped at the panel's right edge. ----
+  function renderPanes() {
+    return (
+      <React.Fragment>
+        {/* sticky header bar spanning both panes */}
+        <div className="tl-header">
+          <div className="ov-head lp-head">
+            <div className="h-lbl h-name">Initiative / epic</div>
+            <div className="h-lbl"></div>
+            {statusFilterBtn}
+          </div>
+          <div className="rp-head-clip" ref={headRef}>
+            <div className="rp-head-inner" style={{ width: tlW }}>
+              <TimelineHeader zoom={zoom} nowWeek={nowWeek} onWeekHover={onWeekHover} />
+            </div>
+          </div>
+        </div>
+
+        <div className="board">
+          {/* left pane — fixed width, stays put */}
+          <div className="left-pane">
+            {visibleInits.map(init => {
+              const epics = visibleEpics(init);
+              const expanded = filtering ? true : init.open;
+              return (
+                <React.Fragment key={init.id}>
+                  <InitiativeRow
+                    init={init} zoom={zoom} nowWeek={nowWeek}
+                    ctxOpen={ctx && ctx.kind === "init" && ctx.initId === init.id}
+                    showTimeline={false}
+                    onToggle={handlers.toggleOpen} onMenu={onMenu} onStatus={handlers.openStatus}
+                    onResize={handlers.resizeInit}
+                  />
+                  {expanded && (
+                    <React.Fragment>
+                      {epics.map(epic => (
+                        <EpicRow
+                          key={epic.id} init={init} epic={epic} zoom={zoom} nowWeek={nowWeek}
+                          ctxOpen={ctx && ctx.kind === "epic" && ctx.epicId === epic.id}
+                          showTimeline={false}
+                          onMenu={onMenu} onStatus={handlers.openStatus}
+                          onResize={handlers.resizeEpic} onAddAssignee={onAddAssignee}
+                        />
+                      ))}
+                      {!filtering && (
+                        <button className="add-epic" onClick={() => handlers.openAddEpic(init.id)}>
+                          <Icon name="plus" size={14} />Add epic
+                        </button>
+                      )}
+                    </React.Fragment>
+                  )}
+                </React.Fragment>
+              );
+            })}
+            {!filtering && (
+              <button className="add-initiative" onClick={handlers.openAddInitiative}>
+                <Icon name="plus" size={15} />Add initiative
+              </button>
+            )}
+            {filtering && visibleInits.length === 0 && (
+              <div className="ov-empty">Nothing matches the selected status{filter.length > 1 ? "es" : ""} right now.</div>
+            )}
+          </div>
+
+          {/* right pane — the only thing that scrolls horizontally */}
+          <div className="right-pane" onScroll={syncScroll}>
+            <div className="right-inner" style={{ width: tlW }}>
+              {visibleInits.map(init => {
+                const epics = visibleEpics(init);
+                const expanded = filtering ? true : init.open;
+                return (
+                  <React.Fragment key={init.id}>
+                    <InitTLRow init={init} zoom={zoom} nowWeek={nowWeek} onResize={handlers.resizeInit} />
+                    {expanded && (
+                      <React.Fragment>
+                        {epics.map(epic => (
+                          <EpicTLRow key={epic.id} init={init} epic={epic} zoom={zoom} nowWeek={nowWeek} onResize={handlers.resizeEpic} />
+                        ))}
+                        {!filtering && <div className="rp-spacer add-epic-h" />}
+                      </React.Fragment>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+              {!filtering && <div className="rp-spacer add-init-h" />}
+            </div>
+          </div>
+        </div>
+      </React.Fragment>
+    );
+  }
+
+  return (
+    <div className="overview" data-barstyle={barStyle} data-timeline={showTimeline ? "on" : "off"}
+      style={{ "--col-w": window.COL_W + "px", "--tl-w": tlW + "px" }}>
+      {showTimeline ? renderPanes() : renderFlat()}
 
       {ctx && (
         <ContextMenu

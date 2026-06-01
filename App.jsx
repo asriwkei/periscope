@@ -2,6 +2,31 @@
 
 const { useState: useStateA } = React;
 
+/* ---------- persistence (localStorage) ----------
+   Initiatives + team are saved on every change and restored on launch, so edits
+   survive closing/reopening the app AND future app updates. localStorage is tied
+   to the app's identity, not the bundled files, so updating the app never wipes it.
+   The seed.js data is only used the very first time, before anything is saved. */
+const LS_KEY = "periscope.data.v1";
+function loadSaved() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (!p || !Array.isArray(p.inits) || !Array.isArray(p.team)) return null;
+    return p;
+  } catch (e) { return null; }
+}
+function saveData(inits, team) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ inits, team })); } catch (e) {}
+}
+// Escape hatch (callable even without devtools, e.g. from a future Settings button):
+// wipe saved data and fall back to the seed demo on next launch.
+window.resetPeriscopeData = function () {
+  try { localStorage.removeItem(LS_KEY); } catch (e) {}
+  location.reload();
+};
+
 const NAV = [
   { id: "overview", label: "Overview", icon: "overview" },
   { id: "capacity", label: "Capacity", icon: "capacity" },
@@ -76,8 +101,12 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [page, setPage] = useStateA("overview");
-  const [inits, setInits] = useStateA(() => window.INITIATIVES);
-  const [team, setTeam] = useStateA(() => window.TEAM);
+  const [inits, setInits] = useStateA(() => { const s = loadSaved(); return s ? s.inits : window.INITIATIVES; });
+  const [team, setTeam] = useStateA(() => { const s = loadSaved(); const tm = s ? s.team : window.TEAM; window.TEAM = tm; return tm; });
+
+  // keep window.TEAM in sync (avatar lookups read it) + auto-save on every change
+  React.useEffect(() => { window.TEAM = team; }, [team]);
+  React.useEffect(() => { saveData(inits, team); }, [inits, team]);
   const [personModal, setPersonModal] = useStateA(null); // {mode:'add'|'edit', person?}
   const [zoom, setZoom] = useStateA("weekly");
   const [showTimeline, setShowTimeline] = useStateA(true);

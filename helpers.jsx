@@ -1,5 +1,21 @@
 /* helpers.jsx — shared primitives: Icon set, Avatar, Pill, date utilities. */
 
+// Opens a URL in the system browser — works in both Tauri and plain browser.
+function openUrl(url) {
+  if (!url) return;
+  if (window.__TAURI__) {
+    window.__TAURI__.shell.open(url);
+  } else {
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+}
+
 const ICONS = {
   overview: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
   capacity: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
@@ -65,10 +81,23 @@ function weekMonday(i) {
 function fmtDay(d) { return MONTH[d.getMonth()] + " " + d.getDate(); }
 function weekLabel(i) { return fmtDay(weekMonday(i)); }
 
-// period string for a [start,end] week span (inclusive): Monday of start → Sunday of end
-function periodLabel(start, end) {
-  const a = weekMonday(start);
-  const b = weekMonday(end); b.setDate(b.getDate() + 6);
+// ISO 8601 week number for a Date: weeks start Monday, week 1 contains the
+// first Thursday of the year. Computed in UTC to avoid DST drift.
+// Check: Monday 2026-06-01 → 23.
+function isoWeekNum(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = (d.getUTCDay() + 6) % 7;          // Mon=0 … Sun=6
+  d.setUTCDate(d.getUTCDate() - dayNum + 3);        // Thursday of this week
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const fdDayNum = (firstThursday.getUTCDay() + 6) % 7;
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - fdDayNum + 3);
+  return 1 + Math.round((d - firstThursday) / 604800000);
+}
+
+// period string for a [startISO, endISO] span (inclusive ISO date strings)
+function periodLabel(startISO, endISO) {
+  const a = new Date(startISO + "T00:00:00");
+  const b = new Date(endISO + "T00:00:00");
   return fmtDay(a) + " – " + fmtDay(b);
 }
 
@@ -84,7 +113,7 @@ function monthGroups() {
   return groups;
 }
 
-Object.assign(window, { Icon, Avatar, Pill, STATUS_LABEL, weekMonday, weekLabel, periodLabel, monthGroups });
+Object.assign(window, { Icon, Avatar, Pill, STATUS_LABEL, weekMonday, weekLabel, isoWeekNum, periodLabel, monthGroups, openUrl });
 
 // person helpers
 const PERSON_COLORS = ["#3D52A0", "#2E9E76", "#B5763A", "#7A5AE0", "#2F8FA6", "#B0506E", "#5E8B45", "#C0392B", "#1E7A8C", "#8A5A2B"];

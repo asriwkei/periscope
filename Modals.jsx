@@ -8,13 +8,31 @@ const STATUS_OPTS = [
   { v: "done", l: "Done" },
 ];
 
-function WeekSelect({ value, onChange }) {
+// Format a local Date as YYYY-MM-DD (avoids UTC timezone shift from toISOString)
+function localISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+// ISO string for Monday of week i (used for defaults in Add modals)
+function weekToISO(weekIdx) {
+  return localISO(window.weekMonday(weekIdx));
+}
+
+// Plain date picker — start/end are now ISO date strings, no week snapping.
+function DateSelect({ value, onChange }) {
+  const minISO = weekToISO(0);
+  const maxISO = weekToISO(window.TL.weeks - 1);
   return (
-    <select className="select" value={value} onChange={(e) => onChange(parseInt(e.target.value, 10))}>
-      {Array.from({ length: window.TL.weeks }).map((_, i) =>
-        <option key={i} value={i}>Week {i + 1} — {window.weekLabel(i)}</option>
-      )}
-    </select>
+    <input
+      className="input"
+      type="date"
+      min={minISO}
+      max={maxISO}
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value)}
+    />
   );
 }
 
@@ -55,7 +73,8 @@ function buildForm(item) {
     nextText: (item.next || []).join("\n"),
     discussionText: (item.discussion || []).join("\n"),
     docs: (item.docs || []).map(d => ({ ...d })),
-    due: item.due != null ? item.due : "",
+    due: item.due || "",
+    ticketUrl: item.ticketUrl || "",
   };
 }
 
@@ -69,18 +88,19 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
     setMode("edit");
   }
   function save() {
+    const [s, e] = form.start <= form.end ? [form.start, form.end] : [form.end, form.start];
     const upd = {
       name: form.name.trim() || item.name,
       status: form.status,
-      start: Math.min(form.start, form.end),
-      end: Math.max(form.start, form.end),
+      start: s,
+      end: e,
       completed: form.completedText.split("\n").map(s => s.trim()).filter(Boolean),
       next: form.nextText.split("\n").map(s => s.trim()).filter(Boolean),
       discussion: form.discussionText.split("\n").map(s => s.trim()).filter(Boolean),
       docs: form.docs.map(d => ({ ...d, label: d.label.trim() })).filter(d => d.label),
-      due: form.due !== "" ? Number(form.due) : null,
+      due: form.due || null,
     };
-    if (isEpic) upd.assignees = form.assignees;
+    if (isEpic) { upd.assignees = form.assignees; upd.ticketUrl = form.ticketUrl.trim(); }
     onSave(upd);
     setMode("view");
   }
@@ -101,7 +121,7 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
               : <div className="modal-title">{item.name}</div>}
             <div className="modal-sub">
               {isEpic && (
-                <a className="ticket" href="#" onClick={(e) => e.preventDefault()}>
+                <a className="ticket" href="#" onClick={(e) => { e.preventDefault(); window.openUrl(item.ticketUrl); }} style={{ opacity: item.ticketUrl ? 1 : 0.5 }}>
                   <Icon name="external" size={11} />{item.ticket}
                 </a>
               )}
@@ -136,16 +156,16 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
                 <div className="sec-h">Documentation</div>
                 <div className="doc-links">
                   {docs.map((d, i) => (
-                    <a key={i} className="doc-link" href={d.url || "#"} target={d.url ? "_blank" : undefined} rel="noopener noreferrer" onClick={d.url ? undefined : (e) => e.preventDefault()}>
+                    <a key={i} className="doc-link" href="#" onClick={(e) => { e.preventDefault(); window.openUrl(d.url); }}>
                       <Icon name="link" size={13} />{d.label}
                     </a>
                   ))}
                 </div>
               </div>
-              {item.due != null && (
+              {item.due && (
                 <div className="sec">
                   <div className="sec-h">Due date</div>
-                  <div className="due-view"><Icon name="flag" size={14} />{window.weekLabel(item.due)}</div>
+                  <div className="due-view"><Icon name="flag" size={14} />{new Date(item.due + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
                 </div>
               )}
             </React.Fragment>
@@ -158,18 +178,19 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
                 </select>
               </div>
               <div className="row2">
-                <div className="field"><label>Timeline start</label><WeekSelect value={form.start} onChange={(v) => set("start", v)} /></div>
-                <div className="field"><label>Timeline end</label><WeekSelect value={form.end} onChange={(v) => set("end", v)} /></div>
+                <div className="field"><label>Timeline start</label><DateSelect value={form.start} onChange={(v) => set("start", v)} /></div>
+                <div className="field"><label>Timeline end</label><DateSelect value={form.end} onChange={(v) => set("end", v)} /></div>
               </div>
               <div className="field">
-                <label>Due date (deadline flag on timeline)</label>
-                <select className="select" value={form.due} onChange={(e) => set("due", e.target.value)}>
-                  <option value="">— No due date —</option>
-                  {Array.from({ length: window.TL.weeks }).map((_, i) => (
-                    <option key={i} value={i}>Week {i + 1} — {window.weekLabel(i)}</option>
-                  ))}
-                </select>
+                <label>Due date (shows flag on timeline)</label>
+                <input className="input" type="date" value={form.due} onChange={(e) => set("due", e.target.value)} />
               </div>
+              {isEpic && (
+                <div className="field">
+                  <label>Ticket URL</label>
+                  <input className="input" type="url" placeholder="https://linear.app/..." value={form.ticketUrl} onChange={(e) => set("ticketUrl", e.target.value)} />
+                </div>
+              )}
               {isEpic && (
                 <div className="field">
                   <label>Assignees</label>
@@ -239,19 +260,20 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
 }
 
 function AddEpicModal({ initiative, onClose, onCreate }) {
-  const [f, setF] = useStateM({ name: "", ticket: "", start: 0, end: 2, status: "on-track", assignees: [] });
+  const [f, setF] = useStateM({ name: "", ticket: "", start: weekToISO(0), end: weekToISO(2), status: "on-track", assignees: [] });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
   const valid = f.name.trim().length > 0;
 
   function create() {
     if (!valid) return;
+    const [s, e] = f.start <= f.end ? [f.start, f.end] : [f.end, f.start];
     onCreate({
       id: "e" + Date.now(),
       name: f.name.trim(),
       ticket: f.ticket.trim() || "NEW-000",
       status: f.status,
-      start: Math.min(f.start, f.end),
-      end: Math.max(f.start, f.end),
+      start: s,
+      end: e,
       assignees: f.assignees,
       completed: [], next: [], discussion: [],
       docs: [{ label: "PRD", kind: "PRD" }],
@@ -283,8 +305,8 @@ function AddEpicModal({ initiative, onClose, onCreate }) {
             </div>
           </div>
           <div className="row2">
-            <div className="field"><label>Timeline start</label><WeekSelect value={f.start} onChange={(v) => set("start", v)} /></div>
-            <div className="field"><label>Timeline end</label><WeekSelect value={f.end} onChange={(v) => set("end", v)} /></div>
+            <div className="field"><label>Timeline start</label><DateSelect value={f.start} onChange={(v) => set("start", v)} /></div>
+            <div className="field"><label>Timeline end</label><DateSelect value={f.end} onChange={(v) => set("end", v)} /></div>
           </div>
           <div className="field" style={{ marginBottom: 4 }}>
             <label>Assignees</label>
@@ -303,18 +325,19 @@ function AddEpicModal({ initiative, onClose, onCreate }) {
 }
 
 function AddInitiativeModal({ onClose, onCreate }) {
-  const [f, setF] = useStateM({ name: "", status: "on-track", start: 0, end: 6 });
+  const [f, setF] = useStateM({ name: "", status: "on-track", start: weekToISO(0), end: weekToISO(6) });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
   const valid = f.name.trim().length > 0;
 
   function create() {
     if (!valid) return;
+    const [s, e] = f.start <= f.end ? [f.start, f.end] : [f.end, f.start];
     onCreate({
       id: "init" + Date.now(),
       name: f.name.trim(),
       status: f.status,
-      start: Math.min(f.start, f.end),
-      end: Math.max(f.start, f.end),
+      start: s,
+      end: e,
       open: true,
       completed: [], next: [], discussion: [],
       docs: [{ label: "Initiative brief", kind: "Doc" }],
@@ -344,8 +367,8 @@ function AddInitiativeModal({ onClose, onCreate }) {
             </select>
           </div>
           <div className="row2" style={{ marginBottom: 4 }}>
-            <div className="field" style={{ marginBottom: 0 }}><label>Timeline start</label><WeekSelect value={f.start} onChange={(v) => set("start", v)} /></div>
-            <div className="field" style={{ marginBottom: 0 }}><label>Timeline end</label><WeekSelect value={f.end} onChange={(v) => set("end", v)} /></div>
+            <div className="field" style={{ marginBottom: 0 }}><label>Timeline start</label><DateSelect value={f.start} onChange={(v) => set("start", v)} /></div>
+            <div className="field" style={{ marginBottom: 0 }}><label>Timeline end</label><DateSelect value={f.end} onChange={(v) => set("end", v)} /></div>
           </div>
         </div>
         <div className="modal-foot">
