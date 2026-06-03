@@ -3,8 +3,10 @@
 const { useState: useStateM } = React;
 
 const STATUS_OPTS = [
+  { v: "todo", l: "To Do" },
   { v: "on-track", l: "On track" },
-  { v: "at-risk", l: "At risk" },
+  { v: "at-risk", l: "Needs attention" },
+  { v: "blocked", l: "Blocked" },
   { v: "done", l: "Done" },
 ];
 
@@ -66,6 +68,7 @@ function buildForm(item) {
   return {
     name: item.name,
     status: item.status,
+    objective: item.objective || "",
     start: item.start,
     end: item.end,
     assignees: [...(item.assignees || [])],
@@ -92,6 +95,7 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
     const upd = {
       name: form.name.trim() || item.name,
       status: form.status,
+      objective: form.objective.trim(),
       start: s,
       end: e,
       completed: form.completedText.split("\n").map(s => s.trim()).filter(Boolean),
@@ -134,6 +138,12 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
         <div className="modal-body">
           {mode === "view" ? (
             <React.Fragment>
+              {item.objective && (
+                <div className="sec">
+                  <div className="sec-h">Objective</div>
+                  <div className="objective-view">{item.objective}</div>
+                </div>
+              )}
               <div className="sec">
                 <div className="sec-h">Completed items</div>
                 {completed.length ? (
@@ -177,13 +187,26 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
                   {STATUS_OPTS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
                 </select>
               </div>
+              <div className="field">
+                <label>Objective</label>
+                <textarea className="textarea" rows={3} placeholder="What does success look like for this?" value={form.objective} onChange={(e) => set("objective", e.target.value)} />
+              </div>
               <div className="row2">
                 <div className="field"><label>Timeline start</label><DateSelect value={form.start} onChange={(v) => set("start", v)} /></div>
                 <div className="field"><label>Timeline end</label><DateSelect value={form.end} onChange={(v) => set("end", v)} /></div>
               </div>
               <div className="field">
                 <label>Due date (shows flag on timeline)</label>
-                <input className="input" type="date" value={form.due} onChange={(e) => set("due", e.target.value)} />
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input className="input" type="date" value={form.due} onChange={(e) => set("due", e.target.value)} style={{ flex: 1 }} />
+                  {form.due && (
+                    <button type="button" onClick={() => set("due", "")}
+                      style={{ flexShrink: 0, border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: "4px", borderRadius: 4, display: "flex", alignItems: "center" }}
+                      title="Remove due date">
+                      <Icon name="x" size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
               {isEpic && (
                 <div className="field">

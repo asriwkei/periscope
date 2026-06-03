@@ -38,7 +38,7 @@ function Sidebar({ page, setPage, team }) {
     <div className="sidebar">
       <div className="side-top">
         <div className="traffic"><i className="r" /><i className="y" /><i className="g" /></div>
-        <span className="brand">Roadmap</span>
+        <span className="brand">Periscope</span>
       </div>
       <div className="nav">
         {NAV.map(n => (
@@ -58,7 +58,7 @@ function Sidebar({ page, setPage, team }) {
   );
 }
 
-function TopBar({ page, zoom, setZoom, showTimeline, setShowTimeline }) {
+function TopBar({ page, zoom, setZoom, showTimeline, setShowTimeline, onExport, exporting }) {
   const title = (NAV.find(n => n.id === page) || {}).label || "";
   return (
     <div className="topbar">
@@ -75,6 +75,12 @@ function TopBar({ page, zoom, setZoom, showTimeline, setShowTimeline }) {
             <button className={zoom === "weekly" ? "on" : ""} onClick={() => setZoom("weekly")}>Weekly</button>
             <button className={zoom === "monthly" ? "on" : ""} onClick={() => setZoom("monthly")}>Monthly</button>
           </div>
+        )}
+        {page === "overview" && (
+          <button className="export-btn" onClick={onExport} disabled={exporting}>
+            <Icon name="download" size={15} />
+            {exporting ? "Exporting…" : "Export Report"}
+          </button>
         )}
       </div>
     </div>
@@ -115,8 +121,24 @@ function App() {
   const [addEpicFor, setAddEpicFor] = useStateA(null);    // initId
   const [addInitOpen, setAddInitOpen] = useStateA(false);
   const [del, setDel] = useStateA(null);                  // {kind, initId, epicId, name, childCount}
+  const [exporting, setExporting] = useStateA(false);
 
   const nowWeek = t.weekTint ? window.TL.nowWeek : -1;
+
+  // ---------- export to DOCX ----------
+  async function handleExport() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const blob = await window.exportInitiativesDocx(inits);
+      await window.downloadDocxBlob(blob, "Initiative_Update_Report.docx");
+    } catch (e) {
+      console.error("Export failed", e);
+      alert("Sorry, the report couldn't be generated: " + (e && e.message ? e.message : e));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   // ---------- mutations ----------
   const setEpic = (initId, epicId, fields) => setInits(prev => prev.map(i =>
@@ -141,6 +163,27 @@ function App() {
     },
     openAddEpic: (initId) => setAddEpicFor(initId),
     openAddInitiative: () => setAddInitOpen(true),
+    reorderInit: (fromId, toId, pos) => setInits(prev => {
+      const arr = [...prev];
+      const fromIdx = arr.findIndex(i => i.id === fromId);
+      const toIdx = arr.findIndex(i => i.id === toId);
+      if (fromIdx === toIdx) return prev;
+      const [item] = arr.splice(fromIdx, 1);
+      const adjusted = toIdx > fromIdx ? toIdx - 1 : toIdx;
+      arr.splice(pos === "after" ? adjusted + 1 : adjusted, 0, item);
+      return arr;
+    }),
+    reorderEpic: (initId, fromId, toId, pos) => setInits(prev => prev.map(i => {
+      if (i.id !== initId) return i;
+      const arr = [...i.epics];
+      const fromIdx = arr.findIndex(e => e.id === fromId);
+      const toIdx = arr.findIndex(e => e.id === toId);
+      if (fromIdx === toIdx) return i;
+      const [item] = arr.splice(fromIdx, 1);
+      const adjusted = toIdx > fromIdx ? toIdx - 1 : toIdx;
+      arr.splice(pos === "after" ? adjusted + 1 : adjusted, 0, item);
+      return { ...i, epics: arr };
+    })),
   };
 
   // ---------- modal lookups ----------
@@ -201,7 +244,7 @@ function App() {
       <div className="window" data-density={t.density}>
         <Sidebar page={page} setPage={setPage} team={team} />
         <div className="main">
-          <TopBar page={page} zoom={zoom} setZoom={setZoom} showTimeline={showTimeline} setShowTimeline={setShowTimeline} />
+          <TopBar page={page} zoom={zoom} setZoom={setZoom} showTimeline={showTimeline} setShowTimeline={setShowTimeline} onExport={handleExport} exporting={exporting} />
           <div className="content">
             {page === "overview" && (
               <OverviewPage inits={inits} zoom={zoom} barStyle={t.barStyle} nowWeek={nowWeek} filter={filter} setFilter={setFilter} showTimeline={showTimeline} handlers={handlers} />

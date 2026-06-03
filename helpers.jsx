@@ -1,10 +1,16 @@
 /* helpers.jsx — shared primitives: Icon set, Avatar, Pill, date utilities. */
 
-// Opens a URL in the system browser — works in both Tauri and plain browser.
+// Opens a URL in the system browser — works in both Tauri v2 and plain browser.
 function openUrl(url) {
   if (!url) return;
   if (window.__TAURI__) {
-    window.__TAURI__.shell.open(url);
+    // Tauri v2: invoke the shell plugin via core.invoke
+    if (window.__TAURI__.core && window.__TAURI__.core.invoke) {
+      window.__TAURI__.core.invoke('plugin:shell|open', { path: url, with: null }).catch(console.error);
+    } else if (window.__TAURI__.shell) {
+      // Tauri v1 fallback
+      window.__TAURI__.shell.open(url);
+    }
   } else {
     const a = document.createElement("a");
     a.href = url;
@@ -35,6 +41,8 @@ const ICONS = {
   flag: "M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7",
   link: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71",
   filter: "M22 3H2l8 9.46V19l4 2v-8.54z",
+  grip: "M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01",
+  download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3",
   panelClose: "M3 4a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM15 3v18M10 9l-3 3 3 3",
   panelOpen: "M3 4a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM15 3v18M7 9l3 3-3 3",
 };
@@ -59,7 +67,7 @@ function Avatar({ person, size }) {
   );
 }
 
-const STATUS_LABEL = { "on-track": "On track", "at-risk": "At risk", "done": "Done" };
+const STATUS_LABEL = { "on-track": "On track", "at-risk": "Needs attention", "done": "Done", "todo": "To Do", "blocked": "Blocked" };
 
 function Pill({ status, onClick, isStatic }) {
   return (

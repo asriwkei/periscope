@@ -10,10 +10,12 @@ function MenuBtn({ open, onClick }) {
   );
 }
 
-function InitiativeRow({ init, zoom, nowWeek, ctxOpen, showTimeline, onToggle, onMenu, onStatus, onResize }) {
+function InitiativeRow({ init, zoom, nowWeek, ctxOpen, showTimeline, onToggle, onMenu, onStatus, onResize, dragProps, dragOverPos, isDragging }) {
+  const dropCls = dragOverPos === "before" ? " drag-before" : dragOverPos === "after" ? " drag-after" : "";
   return (
-    <div className="ov-row init">
+    <div className={"ov-row init" + dropCls + (isDragging ? " dragging" : "")} {...(dragProps || {})}>
       <div className="cell-name">
+        <span className="drag-handle" title="Drag to reorder"><Icon name="grip" size={13} sw={2.5} /></span>
         <button className={"chev" + (init.open ? " open" : "")} onClick={() => onToggle(init.id)} aria-label="Expand">
           <Icon name="chevron" size={13} />
         </button>
@@ -36,13 +38,15 @@ function InitiativeRow({ init, zoom, nowWeek, ctxOpen, showTimeline, onToggle, o
   );
 }
 
-function EpicRow({ init, epic, zoom, nowWeek, ctxOpen, showTimeline, onMenu, onStatus, onResize, onAddAssignee }) {
+function EpicRow({ init, epic, zoom, nowWeek, ctxOpen, showTimeline, onMenu, onStatus, onResize, onAddAssignee, dragProps, dragOverPos, isDragging }) {
   const byId = Object.fromEntries(window.TEAM.map(p => [p.id, p]));
   const shown = epic.assignees.slice(0, 3);
   const extra = epic.assignees.length - shown.length;
+  const dropCls = dragOverPos === "before" ? " drag-before" : dragOverPos === "after" ? " drag-after" : "";
   return (
-    <div className="ov-row epic">
+    <div className={"ov-row epic" + dropCls + (isDragging ? " dragging" : "")} {...(dragProps || {})}>
       <div className="cell-name epic">
+        <span className="drag-handle" title="Drag to reorder"><Icon name="grip" size={13} sw={2.5} /></span>
         <div className="name-main">
           <div className="name-row">
             <span className="name-txt">{epic.name}</span>
@@ -135,8 +139,10 @@ function StatusFilterMenu({ rect, selected, onToggle, onClear, onClose }) {
   left = Math.max(m, left);
   const top = rect.bottom + 6;
   const OPTS = [
+    { v: "todo", l: "To Do" },
     { v: "on-track", l: "On track" },
-    { v: "at-risk", l: "At risk" },
+    { v: "at-risk", l: "Needs attention" },
+    { v: "blocked", l: "Blocked" },
     { v: "done", l: "Done" },
   ];
   return (
@@ -166,6 +172,74 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
   const [asg, setAsg] = useStateO(null);    // {rect, initId, epicId}
   const [tip, setTip] = useStateO(null);    // {rect, week}
   const [fmenu, setFmenu] = useStateO(null); // {rect}
+
+  // drag-to-reorder state (pointer/mouse based — works in Tauri WKWebView)
+  const [dragOver, setDragOver] = useStateO(null);   // { kind, initId, id, pos }
+  const [draggingId, setDraggingId] = useStateO(null); // id of row being dragged
+  const dragRef = React.useRef(null); // { kind, initId, id }
+
+  function makeDragProps(kind, initId, id) {
+    return {
+      'data-drag-id': id,
+      'data-drag-kind': kind,
+      'data-drag-init-id': initId || "",
+      onMouseDown: (e) => {
+        // only start drag from the grip handle
+        if (!e.target.closest('.drag-handle')) return;
+        e.preventDefault();
+        dragRef.current = { kind, initId, id };
+        setDraggingId(id);
+        document.body.classList.add('is-dragging');
+
+        function onMouseMove(ev) {
+          if (!dragRef.current) return;
+          const el = document.elementFromPoint(ev.clientX, ev.clientY);
+          if (!el) { setDragOver(null); return; }
+          const row = el.closest('.ov-row[data-drag-id]');
+          if (!row) { setDragOver(null); return; }
+          const targetId = row.dataset.dragId;
+          const targetKind = row.dataset.dragKind;
+          const targetInitId = row.dataset.dragInitId || null;
+          // only allow same kind and same parent initiative for epics
+          if (targetKind !== dragRef.current.kind) { setDragOver(null); return; }
+          if (targetKind === "epic" && targetInitId !== dragRef.current.initId) { setDragOver(null); return; }
+          const rect = row.getBoundingClientRect();
+          const pos = ev.clientY < rect.top + rect.height / 2 ? "before" : "after";
+          setDragOver(prev => {
+            if (prev && prev.id === targetId && prev.pos === pos) return prev;
+            return { kind: targetKind, initId: targetInitId, id: targetId, pos };
+          });
+        }
+
+        function onMouseUp(ev) {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          document.body.classList.remove('is-dragging');
+          if (!dragRef.current) return;
+          const el = document.elementFromPoint(ev.clientX, ev.clientY);
+          const row = el && el.closest('.ov-row[data-drag-id]');
+          if (row) {
+            const toId = row.dataset.dragId;
+            const toKind = row.dataset.dragKind;
+            const toInitId = row.dataset.dragInitId || null;
+            const fromId = dragRef.current.id;
+            if (fromId !== toId && toKind === dragRef.current.kind) {
+              const rect = row.getBoundingClientRect();
+              const pos = ev.clientY < rect.top + rect.height / 2 ? "before" : "after";
+              if (toKind === "init") handlers.reorderInit(fromId, toId, pos);
+              else if (toInitId === dragRef.current.initId) handlers.reorderEpic(toInitId, fromId, toId, pos);
+            }
+          }
+          dragRef.current = null;
+          setDraggingId(null);
+          setDragOver(null);
+        }
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      },
+    };
+  }
 
   const allEpics = inits.flatMap(i => i.epics);
 
@@ -223,6 +297,7 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
         {visibleInits.map(init => {
           const epics = visibleEpics(init);
           const expanded = filtering ? true : init.open;
+          const initDragOver = dragOver && dragOver.kind === "init" && dragOver.id === init.id ? dragOver.pos : null;
           return (
           <React.Fragment key={init.id}>
             <InitiativeRow
@@ -231,18 +306,27 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
               showTimeline={false}
               onToggle={handlers.toggleOpen} onMenu={onMenu} onStatus={handlers.openStatus}
               onResize={handlers.resizeInit}
+              dragProps={makeDragProps("init", null, init.id)}
+              dragOverPos={initDragOver}
+              isDragging={draggingId === init.id}
             />
             {expanded && (
               <React.Fragment>
-                {epics.map(epic => (
-                  <EpicRow
-                    key={epic.id} init={init} epic={epic} zoom={zoom} nowWeek={nowWeek}
-                    ctxOpen={ctx && ctx.kind === "epic" && ctx.epicId === epic.id}
-                    showTimeline={false}
-                    onMenu={onMenu} onStatus={handlers.openStatus}
-                    onResize={handlers.resizeEpic} onAddAssignee={onAddAssignee}
-                  />
-                ))}
+                {epics.map(epic => {
+                  const epicDragOver = dragOver && dragOver.kind === "epic" && dragOver.id === epic.id ? dragOver.pos : null;
+                  return (
+                    <EpicRow
+                      key={epic.id} init={init} epic={epic} zoom={zoom} nowWeek={nowWeek}
+                      ctxOpen={ctx && ctx.kind === "epic" && ctx.epicId === epic.id}
+                      showTimeline={false}
+                      onMenu={onMenu} onStatus={handlers.openStatus}
+                      onResize={handlers.resizeEpic} onAddAssignee={onAddAssignee}
+                      dragProps={makeDragProps("epic", init.id, epic.id)}
+                      dragOverPos={epicDragOver}
+                      isDragging={draggingId === epic.id}
+                    />
+                  );
+                })}
                 {!filtering && (
                   <button className="add-epic" onClick={() => handlers.openAddEpic(init.id)}>
                     <Icon name="plus" size={14} />Add epic
@@ -290,6 +374,7 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
             {visibleInits.map(init => {
               const epics = visibleEpics(init);
               const expanded = filtering ? true : init.open;
+              const initDragOver = dragOver && dragOver.kind === "init" && dragOver.id === init.id ? dragOver.pos : null;
               return (
                 <React.Fragment key={init.id}>
                   <InitiativeRow
@@ -298,18 +383,27 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
                     showTimeline={false}
                     onToggle={handlers.toggleOpen} onMenu={onMenu} onStatus={handlers.openStatus}
                     onResize={handlers.resizeInit}
+                    dragProps={makeDragProps("init", null, init.id)}
+                    dragOverPos={initDragOver}
+                    isDragging={draggingId === init.id}
                   />
                   {expanded && (
                     <React.Fragment>
-                      {epics.map(epic => (
-                        <EpicRow
-                          key={epic.id} init={init} epic={epic} zoom={zoom} nowWeek={nowWeek}
-                          ctxOpen={ctx && ctx.kind === "epic" && ctx.epicId === epic.id}
-                          showTimeline={false}
-                          onMenu={onMenu} onStatus={handlers.openStatus}
-                          onResize={handlers.resizeEpic} onAddAssignee={onAddAssignee}
-                        />
-                      ))}
+                      {epics.map(epic => {
+                        const epicDragOver = dragOver && dragOver.kind === "epic" && dragOver.id === epic.id ? dragOver.pos : null;
+                        return (
+                          <EpicRow
+                            key={epic.id} init={init} epic={epic} zoom={zoom} nowWeek={nowWeek}
+                            ctxOpen={ctx && ctx.kind === "epic" && ctx.epicId === epic.id}
+                            showTimeline={false}
+                            onMenu={onMenu} onStatus={handlers.openStatus}
+                            onResize={handlers.resizeEpic} onAddAssignee={onAddAssignee}
+                            dragProps={makeDragProps("epic", init.id, epic.id)}
+                            dragOverPos={epicDragOver}
+                            isDragging={draggingId === epic.id}
+                          />
+                        );
+                      })}
                       {!filtering && (
                         <button className="add-epic" onClick={() => handlers.openAddEpic(init.id)}>
                           <Icon name="plus" size={14} />Add epic
