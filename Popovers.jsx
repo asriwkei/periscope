@@ -98,4 +98,67 @@ function WeekTooltip({ rect, week, epics }) {
   );
 }
 
-Object.assign(window, { ContextMenu, AssigneePicker, WeekTooltip });
+function AddMemberPopover({ rect, team, people, memberships, onAdd, onCreateNew, onClose }) {
+  const w = 268;
+  const pos = anchorPos(rect, w, { h: 360 });
+  const [role, setRole] = React.useState("");
+  const onTeam = new Set((memberships || []).filter(m => m.teamId === team.id).map(m => m.personId));
+  const avail = (people || []).filter(p => !onTeam.has(p.id));
+  const r = role.trim();
+  return (
+    <PopLayer onClose={onClose}>
+      <div className="pop asg" style={{ left: pos.left, top: pos.top, width: w }} onClick={(e) => e.stopPropagation()}>
+        <div className="asg-head">Add to {team.name}</div>
+        <div style={{ padding: "0 6px 8px" }}>
+          <input className="input" placeholder="Role on this team (optional)" value={role} onChange={(e) => setRole(e.target.value)} />
+        </div>
+        <div className="toggle-list">
+          {avail.length === 0 && <div className="cd-empty" style={{ padding: "8px 8px" }}>Everyone’s already on this team.</div>}
+          {avail.map(p => (
+            <button key={p.id} className="asg-item" onClick={() => onAdd(p.id, r || p.role)}>
+              <Avatar person={p} size={28} />
+              <span className="asg-meta">
+                <div className="asg-name">{p.name}</div>
+                <div className="asg-sub">{p.role}</div>
+              </span>
+              <span className="asg-check"><Icon name="plus" size={12} /></span>
+            </button>
+          ))}
+          <button className="asg-item" onClick={() => onCreateNew(r)}>
+            <span className="avatar" style={{ background: "var(--ink-3)", "--sz": "28px" }}><Icon name="plus" size={14} /></span>
+            <span className="asg-meta">
+              <div className="asg-name">Create new person</div>
+              <div className="asg-sub">Add someone new to this team</div>
+            </span>
+          </button>
+        </div>
+      </div>
+    </PopLayer>
+  );
+}
+
+function TeamPicker({ rect, teams, currentId, onPick, onClose }) {
+  const w = 220;
+  const pos = anchorPos(rect, w, { h: 300 });
+  return (
+    <PopLayer onClose={onClose}>
+      <div className="pop ctx" style={{ left: pos.left, top: pos.top, width: w }} onClick={(e) => e.stopPropagation()}>
+        <button className={"ctx-item" + (!currentId ? " on" : "")} onClick={() => { onPick(null); onClose(); }}>
+          <span className="team-dot empty" />
+          <span style={{ flex: 1 }}>No team</span>
+          {!currentId && <span className="ctx-check"><Icon name="check" size={12} /></span>}
+        </button>
+        <div className="ctx-div" />
+        {(teams || []).map(t => (
+          <button key={t.id} className={"ctx-item" + (currentId === t.id ? " on" : "")} onClick={() => { onPick(t.id); onClose(); }}>
+            <span className="team-dot" style={{ background: t.color }} />
+            <span style={{ flex: 1 }}>{t.name}</span>
+            {currentId === t.id && <span className="ctx-check"><Icon name="check" size={12} /></span>}
+          </button>
+        ))}
+      </div>
+    </PopLayer>
+  );
+}
+
+Object.assign(window, { ContextMenu, AssigneePicker, WeekTooltip, AddMemberPopover, TeamPicker });

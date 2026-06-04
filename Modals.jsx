@@ -3,12 +3,15 @@
 const { useState: useStateM } = React;
 
 const STATUS_OPTS = [
-  { v: "todo", l: "To Do" },
-  { v: "on-track", l: "On track" },
+  { v: "todo", l: "Discovery" },
+  { v: "on-track", l: "Building" },
   { v: "at-risk", l: "Needs attention" },
   { v: "blocked", l: "Blocked" },
-  { v: "done", l: "Done" },
+  { v: "done", l: "Released" },
 ];
+
+/* Impact type options for initiatives. */
+const IMPACT_TYPES = ["GP1", "Cost savings", "Compliance", "Time savings"];
 
 // Format a local Date as YYYY-MM-DD (avoids UTC timezone shift from toISOString)
 function localISO(d) {
@@ -69,6 +72,8 @@ function buildForm(item) {
     name: item.name,
     status: item.status,
     objective: item.objective || "",
+    estImpact: item.estImpact || "",
+    impactType: item.impactType || "",
     start: item.start,
     end: item.end,
     assignees: [...(item.assignees || [])],
@@ -105,6 +110,7 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
       due: form.due || null,
     };
     if (isEpic) { upd.assignees = form.assignees; upd.ticketUrl = form.ticketUrl.trim(); }
+    else { upd.estImpact = form.estImpact.trim(); upd.impactType = form.impactType; }
     onSave(upd);
     setMode("view");
   }
@@ -144,6 +150,13 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
                   <div className="objective-view">{item.objective}</div>
                 </div>
               )}
+              {!isEpic && (item.estImpact || item.impactType) && (
+                <div className="sec">
+                  <div className="sec-h">Estimated impact</div>
+                  {item.estImpact && <div className="objective-view">{item.estImpact}</div>}
+                  {item.impactType && <div className="impact-type">{item.impactType}</div>}
+                </div>
+              )}
               <div className="sec">
                 <div className="sec-h">Completed items</div>
                 {completed.length ? (
@@ -174,7 +187,7 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
               </div>
               {item.due && (
                 <div className="sec">
-                  <div className="sec-h">Due date</div>
+                  <div className="sec-h">Target</div>
                   <div className="due-view"><Icon name="flag" size={14} />{new Date(item.due + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
                 </div>
               )}
@@ -191,18 +204,33 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
                 <label>Objective</label>
                 <textarea className="textarea" rows={3} placeholder="What does success look like for this?" value={form.objective} onChange={(e) => set("objective", e.target.value)} />
               </div>
+              {!isEpic && (
+                <React.Fragment>
+                  <div className="field">
+                    <label>Estimated impact</label>
+                    <input className="input" placeholder="e.g. +$1.2M ARR / 30% faster onboarding" value={form.estImpact} onChange={(e) => set("estImpact", e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>Impact type</label>
+                    <select className="select" value={form.impactType} onChange={(e) => set("impactType", e.target.value)}>
+                      <option value="">—</option>
+                      {IMPACT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </React.Fragment>
+              )}
               <div className="row2">
                 <div className="field"><label>Timeline start</label><DateSelect value={form.start} onChange={(v) => set("start", v)} /></div>
                 <div className="field"><label>Timeline end</label><DateSelect value={form.end} onChange={(v) => set("end", v)} /></div>
               </div>
               <div className="field">
-                <label>Due date (shows flag on timeline)</label>
+                <label>Target (shows flag on timeline)</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <input className="input" type="date" value={form.due} onChange={(e) => set("due", e.target.value)} style={{ flex: 1 }} />
                   {form.due && (
                     <button type="button" onClick={() => set("due", "")}
                       style={{ flexShrink: 0, border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: "4px", borderRadius: 4, display: "flex", alignItems: "center" }}
-                      title="Remove due date">
+                      title="Remove target">
                       <Icon name="x" size={14} />
                     </button>
                   )}
@@ -348,7 +376,7 @@ function AddEpicModal({ initiative, onClose, onCreate }) {
 }
 
 function AddInitiativeModal({ onClose, onCreate }) {
-  const [f, setF] = useStateM({ name: "", status: "on-track", start: weekToISO(0), end: weekToISO(6) });
+  const [f, setF] = useStateM({ name: "", status: "on-track", estImpact: "", impactType: "", start: weekToISO(0), end: weekToISO(6) });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
   const valid = f.name.trim().length > 0;
 
@@ -359,6 +387,8 @@ function AddInitiativeModal({ onClose, onCreate }) {
       id: "init" + Date.now(),
       name: f.name.trim(),
       status: f.status,
+      estImpact: f.estImpact.trim(),
+      impactType: f.impactType,
       start: s,
       end: e,
       open: true,
@@ -387,6 +417,17 @@ function AddInitiativeModal({ onClose, onCreate }) {
             <label>Status</label>
             <select className="select" value={f.status} onChange={(e) => set("status", e.target.value)}>
               {STATUS_OPTS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label>Estimated impact</label>
+            <input className="input" placeholder="e.g. +$1.2M ARR / 30% faster onboarding" value={f.estImpact} onChange={(e) => set("estImpact", e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Impact type</label>
+            <select className="select" value={f.impactType} onChange={(e) => set("impactType", e.target.value)}>
+              <option value="">—</option>
+              {IMPACT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div className="row2" style={{ marginBottom: 4 }}>
@@ -441,8 +482,8 @@ function DeleteConfirm({ target, onCancel, onConfirm }) {
   );
 }
 
-function PersonModal({ mode, person, onClose, onSave }) {
-  const [f, setF] = useStateM({ name: person ? person.name : "", role: person ? person.role : "" });
+function PersonModal({ mode, person, roleDefault, onClose, onSave }) {
+  const [f, setF] = useStateM({ name: person ? person.name : "", role: person ? person.role : (roleDefault || "") });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
   const valid = f.name.trim().length > 0;
   const isAdd = mode === "add";
@@ -481,4 +522,53 @@ function PersonModal({ mode, person, onClose, onSave }) {
   );
 }
 
-Object.assign(window, { StatusModal, AddEpicModal, AddInitiativeModal, PersonModal, DeleteConfirm });
+function TeamModal({ mode, team, onClose, onSave, onRemove }) {
+  const isAdd = mode === "add";
+  const [f, setF] = useStateM({
+    name: team ? team.name : "",
+    color: team ? team.color : window.TEAM_COLORS[0],
+  });
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const valid = f.name.trim().length > 0;
+  return (
+    <div className="scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" style={{ width: 440 }}>
+        <div className="modal-head">
+          <div className="mh-main"><div className="modal-title">{isAdd ? "New team" : "Edit team"}</div></div>
+          <button className="modal-x" onClick={onClose}><Icon name="x" size={14} /></button>
+        </div>
+        <div className="modal-body">
+          <div className="field" style={{ marginTop: 14 }}>
+            <label>Team name</label>
+            <input className="input" autoFocus placeholder="e.g. Platform" value={f.name} onChange={(e) => set("name", e.target.value)} />
+          </div>
+          <div className="field" style={{ marginBottom: 4 }}>
+            <label>Color</label>
+            <div className="swatches">
+              {window.TEAM_COLORS.map(c => (
+                <button key={c} type="button" className={"swatch" + (f.color === c ? " on" : "")}
+                  style={{ background: c }} onClick={() => set("color", c)} aria-label={"Team color " + c}>
+                  <Icon name="check" size={12} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="modal-foot">
+          {!isAdd && (
+            <button className="btn btn-danger spread" onClick={onRemove}>
+              <Icon name="trash" size={14} />Remove team
+            </button>
+          )}
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" disabled={!valid} style={!valid ? { opacity: 0.5, cursor: "default" } : undefined}
+            onClick={() => onSave({ name: f.name.trim(), color: f.color })}>
+            <Icon name={isAdd ? "plus" : "check"} size={14} />{isAdd ? "Create team" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { StatusModal, AddEpicModal, AddInitiativeModal, PersonModal, TeamModal, DeleteConfirm });

@@ -37,6 +37,27 @@ window.TEAM = [
   { id: "nina",  name: "Nina Roth",     role: "QA engineer",         color: "#5E8B45", initials: "NR" },
 ];
 
+// Teams — people are grouped under these in the Capacity view.
+window.TEAMS = [
+  { id: "platform", name: "Platform", color: "#3D52A0" },
+  { id: "growth",   name: "Growth",   color: "#2E9E76" },
+  { id: "design",   name: "Design",   color: "#B5763A" },
+];
+
+// Team memberships — a person can sit on multiple teams under different roles.
+// `role` here is the per-team role (distinct from the person's global role above).
+window.TEAM_MEMBERSHIPS = [
+  { personId: "dane",  teamId: "platform", role: "Platform engineer" },
+  { personId: "theo",  teamId: "platform", role: "Backend engineer" },
+  { personId: "nina",  teamId: "platform", role: "QA engineer" },
+  { personId: "maya",  teamId: "growth",   role: "Frontend lead" },
+  { personId: "priya", teamId: "growth",   role: "Brand designer" },
+  { personId: "sara",  teamId: "growth",   role: "Product manager" },
+  { personId: "leo",   teamId: "growth",   role: "Full-stack engineer" },
+  { personId: "maya",  teamId: "design",   role: "Design systems" },
+  { personId: "priya", teamId: "design",   role: "Product designer" },
+];
+
 // status: "on-track" | "at-risk" | "done"
 window.INITIATIVES = [
   {
@@ -188,3 +209,21 @@ window.INITIATIVES = [
     ],
   },
 ];
+
+// Stamp a teamId onto every initiative and epic. Kept here (rather than inline in
+// the literals above) so the initiative/epic objects stay readable.
+(function () {
+  const initTeam = {
+    auth: "platform", billing: "growth", analytics: "platform", onboarding: "growth",
+  };
+  const epicTeam = {
+    sso: "platform", reset: "platform", mfa: "platform",
+    stripe: "growth", usage: "growth", invoice: "design",
+    pipeline: "platform", dashv2: "design", export: "platform",
+    wizard: "design", seed: "growth", activation: "growth",
+  };
+  window.INITIATIVES.forEach(i => {
+    i.teamId = initTeam[i.id] || null;
+    i.epics.forEach(e => { e.teamId = epicTeam[e.id] || null; });
+  });
+})();

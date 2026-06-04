@@ -67,7 +67,7 @@ function Avatar({ person, size }) {
   );
 }
 
-const STATUS_LABEL = { "on-track": "On track", "at-risk": "Needs attention", "done": "Done", "todo": "To Do", "blocked": "Blocked" };
+const STATUS_LABEL = { "on-track": "Building", "at-risk": "Needs attention", "done": "Released", "todo": "Discovery", "blocked": "Blocked" };
 
 function Pill({ status, onClick, isStatic }) {
   return (
@@ -136,3 +136,12 @@ function nextColor(team) {
   return PERSON_COLORS.find(c => !used.has(c)) || PERSON_COLORS[team.length % PERSON_COLORS.length];
 }
 Object.assign(window, { PERSON_COLORS, makeInitials, nextColor });
+
+// team helpers
+const TEAM_COLORS = ["#3D52A0", "#2E9E76", "#B5763A", "#7A5AE0", "#2F8FA6", "#B0506E", "#5E8B45", "#C0392B", "#1E7A8C", "#8A5A2B"];
+function teamById(teams, id) { return (teams || []).find(t => t.id === id) || null; }
+function nextTeamColor(teams) {
+  const used = new Set((teams || []).map(t => t.color));
+  return TEAM_COLORS.find(c => !used.has(c)) || TEAM_COLORS[(teams || []).length % TEAM_COLORS.length];
+}
+Object.assign(window, { TEAM_COLORS, teamById, nextTeamColor });

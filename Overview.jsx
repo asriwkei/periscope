@@ -2,6 +2,26 @@
 
 const { useState: useStateO } = React;
 
+/* Status filter options. `color` is a CSS token string so dots stay token-driven.
+   Adding a status later = append one entry here; the dropdown picks it up. */
+const STATUS_FILTERS = [
+  { id: "on-track", name: "Building", color: "var(--green)" },
+  { id: "at-risk", name: "Needs attention", color: "var(--amber)" },
+  { id: "done", name: "Released", color: "var(--done)" },
+];
+
+function TeamCell({ teamId, onClick }) {
+  const team = window.teamById(window.TEAMS, teamId);
+  return (
+    <div className="cell-team">
+      <button className="cell-team-btn" onClick={onClick}>
+        <span className={"team-dot" + (team ? "" : " empty")} style={team ? { background: team.color } : undefined} />
+        <span style={{ color: team ? "var(--ink-2)" : "var(--ink-4)" }}>{team ? team.name : "—"}</span>
+      </button>
+    </div>
+  );
+}
+
 function MenuBtn({ open, onClick }) {
   return (
     <button className={"menu-btn" + (open ? " open" : "")} onClick={onClick} aria-label="More">
@@ -10,7 +30,7 @@ function MenuBtn({ open, onClick }) {
   );
 }
 
-function InitiativeRow({ init, zoom, nowWeek, ctxOpen, showTimeline, onToggle, onMenu, onStatus, onResize, dragProps, dragOverPos, isDragging }) {
+function InitiativeRow({ init, zoom, nowWeek, ctxOpen, showTimeline, onToggle, onMenu, onStatus, onResize, onTeamCell, dragProps, dragOverPos, isDragging }) {
   const dropCls = dragOverPos === "before" ? " drag-before" : dragOverPos === "after" ? " drag-after" : "";
   return (
     <div className={"ov-row init" + dropCls + (isDragging ? " dragging" : "")} {...(dragProps || {})}>
@@ -27,6 +47,7 @@ function InitiativeRow({ init, zoom, nowWeek, ctxOpen, showTimeline, onToggle, o
         </div>
       </div>
       <div className="cell-assignees" />
+      <TeamCell teamId={init.teamId} onClick={(e) => onTeamCell(e, "init", init.id, null, init.teamId)} />
       <div className="cell-status"><Pill status={init.status} onClick={() => onStatus(init.id, null)} /></div>
       {showTimeline && (
         <div className="cell-timeline">
@@ -38,7 +59,7 @@ function InitiativeRow({ init, zoom, nowWeek, ctxOpen, showTimeline, onToggle, o
   );
 }
 
-function EpicRow({ init, epic, zoom, nowWeek, ctxOpen, showTimeline, onMenu, onStatus, onResize, onAddAssignee, dragProps, dragOverPos, isDragging }) {
+function EpicRow({ init, epic, zoom, nowWeek, ctxOpen, showTimeline, onMenu, onStatus, onResize, onAddAssignee, onTeamCell, dragProps, dragOverPos, isDragging }) {
   const byId = Object.fromEntries(window.TEAM.map(p => [p.id, p]));
   const shown = epic.assignees.slice(0, 3);
   const extra = epic.assignees.length - shown.length;
@@ -66,6 +87,7 @@ function EpicRow({ init, epic, zoom, nowWeek, ctxOpen, showTimeline, onMenu, onS
           <Icon name="plus" size={12} />
         </button>
       </div>
+      <TeamCell teamId={epic.teamId} onClick={(e) => onTeamCell(e, "epic", init.id, epic.id, epic.teamId)} />
       <div className="cell-status"><Pill status={epic.status} onClick={() => onStatus(init.id, epic.id)} /></div>
       {showTimeline && (
         <div className="cell-timeline">
@@ -132,46 +154,73 @@ function TimelineHeader({ zoom, nowWeek, onWeekHover }) {
   );
 }
 
-function StatusFilterMenu({ rect, selected, onToggle, onClear, onClose }) {
-  const w = 196;
-  const m = 8;
-  let left = Math.min(rect.left, window.innerWidth - w - m);
-  left = Math.max(m, left);
-  const top = rect.bottom + 6;
-  const OPTS = [
-    { v: "todo", l: "To Do" },
-    { v: "on-track", l: "On track" },
-    { v: "at-risk", l: "Needs attention" },
-    { v: "blocked", l: "Blocked" },
-    { v: "done", l: "Done" },
-  ];
+/* Reusable multi-select filter dropdown. items: [{id, name, color?}] where color
+   is a CSS token/color string. value/setValue manage the selected id array. */
+function FilterDropdown({ label, items, value, setValue }) {
+  const [open, setOpen] = useStateO(false);
+  const [rect, setRect] = useStateO(null);
+  const count = value.length;
+  const summary = count === 0 ? "All"
+    : count === 1 ? ((items.find(i => i.id === value[0]) || {}).name || "1 selected")
+    : count + " selected";
+  function toggle(id) { setValue(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]); }
+  const w = 220, m = 8;
+  const left = rect ? Math.max(m, Math.min(rect.left, window.innerWidth - w - m)) : 0;
+  const top = rect ? rect.bottom + 6 : 0;
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100 }} onClick={onClose}>
-      <div className="pop fmenu" style={{ left, top, width: w }} onClick={(e) => e.stopPropagation()}>
-        <div className="fmenu-head">
-          <span>Filter status</span>
-          {selected.length > 0 && <button className="fmenu-clear" onClick={onClear}>Clear</button>}
+    <React.Fragment>
+      <button className={"fbar-team" + (count ? " active" : "")}
+        onClick={(e) => { setRect(e.currentTarget.getBoundingClientRect()); setOpen(o => !o); }}>
+        <span className="fbar-ddl">{label}: {summary}</span>
+        <span className={"fb-caret" + (open ? " open" : "")}><Icon name="chevron" size={12} /></span>
+      </button>
+      {open && rect && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100 }} onClick={() => setOpen(false)}>
+          <div className="pop fmenu" style={{ left, top, width: w }} onClick={(e) => e.stopPropagation()}>
+            <div className="fmenu-head">
+              <span>{label}</span>
+              {count > 0 && <button className="fmenu-clear" onClick={() => setValue([])}>Clear</button>}
+            </div>
+            <div className="fmenu-scroll">
+              {items.length === 0 && <div className="cd-empty" style={{ padding: "8px" }}>Nothing to filter.</div>}
+              {items.map(it => {
+                const on = value.includes(it.id);
+                return (
+                  <button key={it.id} className={"fmenu-item" + (on ? " on" : "")} onClick={() => toggle(it.id)}>
+                    <span className="fmenu-box"><Icon name="check" size={11} /></span>
+                    {it.color && <span className="team-dot" style={{ background: it.color }} />}
+                    <span className="fmenu-label">{it.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
-        {OPTS.map(o => {
-          const on = selected.includes(o.v);
-          return (
-            <button key={o.v} className={"fmenu-item" + (on ? " on" : "")} onClick={() => onToggle(o.v)}>
-              <span className="fmenu-box"><Icon name="check" size={11} /></span>
-              <span className={"fdot " + o.v} />
-              <span className="fmenu-label">{o.l}</span>
-            </button>
-          );
-        })}
+      )}
+    </React.Fragment>
+  );
+}
+
+function FilterBar({ inits, teams, filter, setFilter, teamFilter, setTeamFilter, initFilter, setInitFilter }) {
+  const teamItems = (teams || []).map(t => ({ id: t.id, name: t.name, color: t.color }));
+  const initItems = (inits || []).map(i => ({ id: i.id, name: i.name }));
+  return (
+    <div className="fbar">
+      <span className="fbar-lbl">Filter</span>
+      <div className="fbar-drops">
+        <FilterDropdown label="Status" items={STATUS_FILTERS} value={filter} setValue={setFilter} />
+        <FilterDropdown label="Team" items={teamItems} value={teamFilter} setValue={setTeamFilter} />
+        <FilterDropdown label="Initiative" items={initItems} value={initFilter} setValue={setInitFilter} />
       </div>
     </div>
   );
 }
 
-function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showTimeline, handlers }) {
+function OverviewPage({ inits, teams, zoom, barStyle, nowWeek, filter, teamFilter, initFilter, showTimeline, handlers }) {
   const [ctx, setCtx] = useStateO(null);   // {rect, kind, initId, epicId, name}
   const [asg, setAsg] = useStateO(null);    // {rect, initId, epicId}
   const [tip, setTip] = useStateO(null);    // {rect, week}
-  const [fmenu, setFmenu] = useStateO(null); // {rect}
+  const [teamPick, setTeamPick] = useStateO(null); // {rect, kind, initId, epicId, currentId}
 
   // drag-to-reorder state (pointer/mouse based — works in Tauri WKWebView)
   const [dragOver, setDragOver] = useStateO(null);   // { kind, initId, id, pos }
@@ -255,19 +304,32 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
     if (rect == null) setTip(null);
     else setTip({ rect, week });
   }
+  function onTeamCell(e, kind, initId, epicId, currentId) {
+    e.stopPropagation();
+    setTeamPick({ rect: e.currentTarget.getBoundingClientRect(), kind, initId, epicId, currentId });
+  }
 
   const asgEpic = asg ? inits.find(i => i.id === asg.initId)?.epics.find(e => e.id === asg.epicId) : null;
 
-  // ----- status filter (multi-select) -----
-  const filtering = filter.length > 0;
-  const matches = (s) => filter.includes(s);
-  const visibleInits = !filtering ? inits : inits.filter(i =>
-    matches(i.status) || i.epics.some(e => matches(e.status)));
+  // ----- combined filtering: status + team + initiative (all multi-select) -----
+  const statusActive = filter.length > 0;
+  const teamActive = teamFilter.length > 0;
+  const initActive = initFilter.length > 0;
+  const anyFilter = statusActive || teamActive || initActive;
+  const stTeamActive = statusActive || teamActive; // these two filter rows; init only narrows the set
+  const epicMatches = (e) =>
+    (!statusActive || filter.includes(e.status)) &&
+    (!teamActive || teamFilter.includes(e.teamId));
+  const initSelfMatches = (i) =>
+    (!statusActive || filter.includes(i.status)) &&
+    (!teamActive || teamFilter.includes(i.teamId));
+  const visibleInits = inits.filter(i => {
+    if (initActive && !initFilter.includes(i.id)) return false;
+    if (!stTeamActive) return true;
+    return initSelfMatches(i) || i.epics.some(epicMatches);
+  });
   function visibleEpics(init) {
-    return filtering ? init.epics.filter(e => matches(e.status)) : init.epics;
-  }
-  function toggleStatus(v) {
-    setFilter(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]);
+    return stTeamActive ? init.epics.filter(epicMatches) : init.epics;
   }
 
   const tlW = window.TL.weeks * window.COL_W;
@@ -277,26 +339,23 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
     if (headRef.current) headRef.current.scrollLeft = e.currentTarget.scrollLeft;
   }
 
-  const statusFilterBtn = (
-    <button className={"h-status-filter" + (filtering ? " active" : "")}
-      onClick={(e) => setFmenu({ rect: e.currentTarget.getBoundingClientRect() })}>
-      Status
-      {filtering ? <span className="h-filter-count">{filter.length}</span> : <Icon name="filter" size={11} />}
-    </button>
+  const headLabels = (
+    <React.Fragment>
+      <div className="h-lbl h-name">Initiative / epic</div>
+      <div className="h-lbl"></div>
+      <div className="h-lbl">Team</div>
+      <div className="h-lbl">Status</div>
+    </React.Fragment>
   );
 
   // ---- single-grid layout (timeline hidden) ----
   function renderFlat() {
     return (
       <div className="ov-grid">
-        <div className="ov-head">
-          <div className="h-lbl h-name">Initiative / epic</div>
-          <div className="h-lbl"></div>
-          {statusFilterBtn}
-        </div>
+        <div className="ov-head">{headLabels}</div>
         {visibleInits.map(init => {
           const epics = visibleEpics(init);
-          const expanded = filtering ? true : init.open;
+          const expanded = anyFilter ? true : init.open;
           const initDragOver = dragOver && dragOver.kind === "init" && dragOver.id === init.id ? dragOver.pos : null;
           return (
           <React.Fragment key={init.id}>
@@ -305,7 +364,7 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
               ctxOpen={ctx && ctx.kind === "init" && ctx.initId === init.id}
               showTimeline={false}
               onToggle={handlers.toggleOpen} onMenu={onMenu} onStatus={handlers.openStatus}
-              onResize={handlers.resizeInit}
+              onResize={handlers.resizeInit} onTeamCell={onTeamCell}
               dragProps={makeDragProps("init", null, init.id)}
               dragOverPos={initDragOver}
               isDragging={draggingId === init.id}
@@ -320,14 +379,14 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
                       ctxOpen={ctx && ctx.kind === "epic" && ctx.epicId === epic.id}
                       showTimeline={false}
                       onMenu={onMenu} onStatus={handlers.openStatus}
-                      onResize={handlers.resizeEpic} onAddAssignee={onAddAssignee}
+                      onResize={handlers.resizeEpic} onAddAssignee={onAddAssignee} onTeamCell={onTeamCell}
                       dragProps={makeDragProps("epic", init.id, epic.id)}
                       dragOverPos={epicDragOver}
                       isDragging={draggingId === epic.id}
                     />
                   );
                 })}
-                {!filtering && (
+                {!anyFilter && (
                   <button className="add-epic" onClick={() => handlers.openAddEpic(init.id)}>
                     <Icon name="plus" size={14} />Add epic
                   </button>
@@ -337,13 +396,13 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
           </React.Fragment>
           );
         })}
-        {!filtering && (
+        {!anyFilter && (
           <button className="add-initiative" onClick={handlers.openAddInitiative}>
             <Icon name="plus" size={15} />Add initiative
           </button>
         )}
-        {filtering && visibleInits.length === 0 && (
-          <div className="ov-empty">Nothing matches the selected status{filter.length > 1 ? "es" : ""} right now.</div>
+        {anyFilter && visibleInits.length === 0 && (
+          <div className="ov-empty">Nothing matches the current filters right now.</div>
         )}
       </div>
     );
@@ -356,11 +415,7 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
       <React.Fragment>
         {/* sticky header bar spanning both panes */}
         <div className="tl-header">
-          <div className="ov-head lp-head">
-            <div className="h-lbl h-name">Initiative / epic</div>
-            <div className="h-lbl"></div>
-            {statusFilterBtn}
-          </div>
+          <div className="ov-head lp-head">{headLabels}</div>
           <div className="rp-head-clip" ref={headRef}>
             <div className="rp-head-inner" style={{ width: tlW }}>
               <TimelineHeader zoom={zoom} nowWeek={nowWeek} onWeekHover={onWeekHover} />
@@ -373,7 +428,7 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
           <div className="left-pane">
             {visibleInits.map(init => {
               const epics = visibleEpics(init);
-              const expanded = filtering ? true : init.open;
+              const expanded = anyFilter ? true : init.open;
               const initDragOver = dragOver && dragOver.kind === "init" && dragOver.id === init.id ? dragOver.pos : null;
               return (
                 <React.Fragment key={init.id}>
@@ -382,7 +437,7 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
                     ctxOpen={ctx && ctx.kind === "init" && ctx.initId === init.id}
                     showTimeline={false}
                     onToggle={handlers.toggleOpen} onMenu={onMenu} onStatus={handlers.openStatus}
-                    onResize={handlers.resizeInit}
+                    onResize={handlers.resizeInit} onTeamCell={onTeamCell}
                     dragProps={makeDragProps("init", null, init.id)}
                     dragOverPos={initDragOver}
                     isDragging={draggingId === init.id}
@@ -397,14 +452,14 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
                             ctxOpen={ctx && ctx.kind === "epic" && ctx.epicId === epic.id}
                             showTimeline={false}
                             onMenu={onMenu} onStatus={handlers.openStatus}
-                            onResize={handlers.resizeEpic} onAddAssignee={onAddAssignee}
+                            onResize={handlers.resizeEpic} onAddAssignee={onAddAssignee} onTeamCell={onTeamCell}
                             dragProps={makeDragProps("epic", init.id, epic.id)}
                             dragOverPos={epicDragOver}
                             isDragging={draggingId === epic.id}
                           />
                         );
                       })}
-                      {!filtering && (
+                      {!anyFilter && (
                         <button className="add-epic" onClick={() => handlers.openAddEpic(init.id)}>
                           <Icon name="plus" size={14} />Add epic
                         </button>
@@ -414,13 +469,13 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
                 </React.Fragment>
               );
             })}
-            {!filtering && (
+            {!anyFilter && (
               <button className="add-initiative" onClick={handlers.openAddInitiative}>
                 <Icon name="plus" size={15} />Add initiative
               </button>
             )}
-            {filtering && visibleInits.length === 0 && (
-              <div className="ov-empty">Nothing matches the selected status{filter.length > 1 ? "es" : ""} right now.</div>
+            {anyFilter && visibleInits.length === 0 && (
+              <div className="ov-empty">Nothing matches the current filters right now.</div>
             )}
           </div>
 
@@ -429,7 +484,7 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
             <div className="right-inner" style={{ width: tlW }}>
               {visibleInits.map(init => {
                 const epics = visibleEpics(init);
-                const expanded = filtering ? true : init.open;
+                const expanded = anyFilter ? true : init.open;
                 return (
                   <React.Fragment key={init.id}>
                     <InitTLRow init={init} zoom={zoom} nowWeek={nowWeek} onResize={handlers.resizeInit} />
@@ -438,13 +493,13 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
                         {epics.map(epic => (
                           <EpicTLRow key={epic.id} init={init} epic={epic} zoom={zoom} nowWeek={nowWeek} onResize={handlers.resizeEpic} />
                         ))}
-                        {!filtering && <div className="rp-spacer add-epic-h" />}
+                        {!anyFilter && <div className="rp-spacer add-epic-h" />}
                       </React.Fragment>
                     )}
                   </React.Fragment>
                 );
               })}
-              {!filtering && <div className="rp-spacer add-init-h" />}
+              {!anyFilter && <div className="rp-spacer add-init-h" />}
             </div>
           </div>
         </div>
@@ -473,15 +528,15 @@ function OverviewPage({ inits, zoom, barStyle, nowWeek, filter, setFilter, showT
         />
       )}
       {tip && <WeekTooltip rect={tip.rect} week={tip.week} epics={allEpics} />}
-      {fmenu && (
-        <StatusFilterMenu
-          rect={fmenu.rect} selected={filter}
-          onToggle={toggleStatus} onClear={() => setFilter([])}
-          onClose={() => setFmenu(null)}
+      {teamPick && (
+        <TeamPicker
+          rect={teamPick.rect} teams={teams} currentId={teamPick.currentId}
+          onPick={(tid) => handlers.assignTeam(teamPick.kind, teamPick.initId, teamPick.epicId, tid)}
+          onClose={() => setTeamPick(null)}
         />
       )}
     </div>
   );
 }
 
-Object.assign(window, { OverviewPage });
+Object.assign(window, { OverviewPage, FilterBar });

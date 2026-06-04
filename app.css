@@ -220,25 +220,30 @@ button { font-family: inherit; cursor: pointer; }
 .export-btn:hover { background: var(--initiative-2); border-color: var(--initiative-2); }
 .export-btn:disabled { opacity: 0.55; cursor: default; }
 
-/* status column header filter button */
-.h-status-filter {
-  display: inline-flex; align-items: center; gap: 6px;
-  border: none; background: none; cursor: pointer;
+/* ---------- filter toolbar (above the overview grid) ---------- */
+.fbar {
+  display: flex; align-items: center; justify-content: flex-start; gap: 10px;
+  height: 40px; padding: 0 22px; flex-shrink: 0;
+  background: var(--win); border-bottom: 1px solid var(--line);
+}
+.fbar-lbl {
   font-size: 10.5px; font-weight: 500; letter-spacing: 0.07em;
   text-transform: uppercase; color: var(--ink-3);
-  padding: 4px 7px; border-radius: 6px; margin-left: -7px;
-  transition: background .12s, color .12s;
 }
-.h-status-filter:hover { background: var(--surface-2); color: var(--ink-2); }
-.h-status-filter svg { color: var(--ink-4); }
-.h-status-filter.active { color: var(--initiative); }
-.h-status-filter.active:hover { background: var(--initiative-soft); }
-.h-filter-count {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 15px; height: 15px; padding: 0 4px; border-radius: 999px;
-  background: var(--initiative); color: #fff; font-size: 9.5px; font-weight: 500;
-  letter-spacing: 0;
+.fbar-drops { display: flex; align-items: center; gap: 8px; }
+.fbar-team {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 220px;
+  border: 0.5px solid var(--line-2); background: #fff; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; color: var(--ink-2);
+  padding: 5px 9px; border-radius: 7px;
+  transition: border-color .12s, background .12s, color .12s;
 }
+.fbar-team:hover { border-color: var(--line-2); background: var(--surface-2); color: var(--ink-1); }
+.fbar-team.active { border-color: var(--initiative); color: var(--initiative); background: var(--initiative-soft); }
+.fbar-ddl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-caret { display: inline-flex; color: var(--ink-4); transition: transform .15s; flex-shrink: 0; }
+.fb-caret.open { transform: rotate(180deg); }
+.fbar-team.active .fb-caret { color: var(--initiative); }
 
 /* multi-select filter menu */
 .fmenu { padding: 6px; }
@@ -272,12 +277,16 @@ button { font-family: inherit; cursor: pointer; }
 .fmenu-box svg { opacity: 0; }
 .fmenu-item.on .fmenu-box svg { opacity: 1; }
 .fmenu-label { flex: 1; }
-.fdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.fdot.on-track { background: var(--green); }
-.fdot.at-risk { background: var(--amber); }
-.fdot.done { background: var(--done); }
-.fdot.todo { background: var(--todo); }
-.fdot.blocked { background: var(--blocked); }
+.fmenu-scroll { max-height: 244px; overflow-y: auto; }
+
+/* shared team/status dot — color supplied inline via style */
+.team-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--ink-4); }
+.team-dot.empty { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-2); }
+
+/* selected state + checkmark inside context-style menus (team picker) */
+.ctx-item.on { color: var(--ink-1); }
+.ctx-check { display: inline-flex; color: var(--initiative); flex-shrink: 0; }
+.ctx-check svg { color: var(--initiative); }
 
 /* ---------- pills ---------- */
 .pill {
@@ -303,23 +312,23 @@ button { font-family: inherit; cursor: pointer; }
 .pill.static:hover { filter: none; }
 
 /* ======================= OVERVIEW ======================= */
-.overview { padding: 18px 22px 60px; min-width: 1000px; }
+.overview { padding: 18px 22px 60px; min-width: 1120px; }
 
 .ov-grid { width: max-content; min-width: 100%; }
 
-/* a row is a CSS grid: name | assignees | status | timeline.
+/* a row is a CSS grid: name | assignees | team | status | timeline.
    The timeline column is a fixed pixel width (weeks × COL_W) so the whole
    grid overflows horizontally and scrolls; header + body scroll together. */
 .ov-row, .ov-head {
   display: grid;
-  grid-template-columns: 350px 80px 150px var(--tl-w, minmax(320px, 1fr));
+  grid-template-columns: 352px 84px 120px 144px var(--tl-w, minmax(320px, 1fr));
   align-items: center;
 }
 .overview[data-timeline="off"] .ov-row,
 .overview[data-timeline="off"] .ov-head {
-  grid-template-columns: minmax(350px, 1.4fr) 100px 160px;
+  grid-template-columns: minmax(360px, 1.4fr) 120px 140px 160px;
 }
-.overview[data-timeline="off"] { min-width: 720px; }
+.overview[data-timeline="off"] { min-width: 840px; }
 
 .ov-head {
   position: sticky; top: 0; z-index: 6;
@@ -432,6 +441,17 @@ body.is-dragging * { cursor: grabbing !important; }
   font-size: 10.5px; color: var(--ink-3); margin-left: 10px; font-weight: 500;
 }
 
+/* team cell */
+.cell-team { display: flex; align-items: center; padding-left: 2px; height: 100%; min-width: 0; }
+.cell-team-btn {
+  display: inline-flex; align-items: center; gap: 7px; min-width: 0; max-width: 100%;
+  border: none; background: none; cursor: pointer; font-family: inherit;
+  font-size: 12.5px; padding: 4px 7px; border-radius: 7px; margin-left: -7px;
+  transition: background .12s;
+}
+.cell-team-btn:hover { background: var(--surface-2); }
+.cell-team-btn > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* status cell */
 .cell-status { padding-left: 2px; display: flex; align-items: center; height: 100%; }
 
@@ -451,8 +471,8 @@ body.is-dragging * { cursor: grabbing !important; }
 }
 .overview[data-timeline="on"] .lp-head {
   position: static; z-index: auto;
-  flex: 0 0 580px; width: 580px; height: 40px;
-  grid-template-columns: 350px 80px 150px;
+  flex: 0 0 700px; width: 700px; height: 40px;
+  grid-template-columns: 352px 84px 120px 144px;
   border-bottom: none; border-right: 1px solid var(--line-2);
   background: var(--win);
 }
@@ -462,7 +482,7 @@ body.is-dragging * { cursor: grabbing !important; }
 /* body: two side-by-side panes */
 .overview[data-timeline="on"] .board { display: flex; align-items: flex-start; }
 .overview[data-timeline="on"] .left-pane {
-  flex: 0 0 580px; width: 580px;
+  flex: 0 0 700px; width: 700px;
   position: sticky; left: 0; z-index: 4;
   background: var(--win); border-right: 1px solid var(--line-2);
 }
@@ -471,7 +491,7 @@ body.is-dragging * { cursor: grabbing !important; }
   overflow-x: auto; overflow-y: hidden;
   overscroll-behavior-x: contain;
 }
-.overview[data-timeline="on"] .left-pane .ov-row { grid-template-columns: 350px 80px 150px; height: 46px; }
+.overview[data-timeline="on"] .left-pane .ov-row { grid-template-columns: 352px 84px 120px 144px; height: 46px; }
 .overview[data-timeline="on"] .left-pane .add-epic { height: 38px; }
 .overview[data-timeline="on"] .left-pane .add-initiative { height: 46px; }
 
@@ -514,6 +534,7 @@ body.is-dragging * { cursor: grabbing !important; }
 }
 .due-view { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #e05252; font-weight: 500; }
 .objective-view { font-size: 13.5px; color: var(--ink-1); line-height: 1.55; white-space: pre-wrap; }
+.impact-type { display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 999px; font-size: 12px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line); }
 .bar {
   position: absolute; top: 50%; transform: translateY(-50%);
   height: 18px; border-radius: 5px;
@@ -784,6 +805,67 @@ body.is-dragging * { cursor: grabbing !important; }
 /* ======================= CAPACITY ======================= */
 .capacity { padding: 24px 24px 60px; }
 .cap-intro { font-size: 13px; color: var(--ink-3); margin-bottom: 18px; }
+
+/* collapsible team section */
+.cap-team { margin-bottom: 18px; }
+.cap-team-head {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--surface-2); border-radius: var(--radius);
+  padding: 8px 12px; margin-bottom: 14px;
+}
+.cap-team-chev {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border: none; background: none; cursor: pointer;
+  color: var(--ink-3); border-radius: 6px; transition: transform .15s, background .12s;
+}
+.cap-team-chev:hover { background: var(--surface-3); }
+.cap-team-chev.open { transform: rotate(90deg); }
+.cap-team-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.cap-team-name { font-size: 13.5px; font-weight: 500; color: var(--ink-2); }
+.cap-team-count {
+  font-size: 11.5px; font-weight: 500; color: var(--ink-3);
+  background: var(--win); border-radius: var(--radius-pill); padding: 2px 9px;
+}
+.cap-team-add {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: none; background: none; cursor: pointer; font-family: inherit;
+  font-size: 12.5px; font-weight: 500; color: var(--ink-2);
+  padding: 5px 9px; border-radius: 7px; transition: background .12s, color .12s;
+}
+.cap-team-add:hover { background: var(--win); color: var(--initiative); }
+.cap-team-menu {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border: none; background: none; cursor: pointer;
+  color: var(--ink-3); border-radius: 7px; transition: background .12s, color .12s;
+}
+.cap-team-menu:hover { background: var(--win); color: var(--ink-1); }
+.cap-team-empty {
+  grid-column: 1 / -1; font-size: 12.5px; color: var(--ink-3);
+  padding: 4px 2px 8px;
+}
+
+/* new-team ghost button */
+.cap-newteam {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px dashed var(--line-2); border-radius: var(--radius); background: none;
+  color: var(--ink-3); font-family: inherit; font-size: 13px; font-weight: 500;
+  padding: 10px 16px; cursor: pointer; transition: all .12s;
+}
+.cap-newteam:hover { border-color: var(--initiative); color: var(--initiative); background: var(--initiative-soft); }
+
+/* color swatch picker (team modal) */
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch {
+  width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+  border: 2px solid transparent; padding: 0;
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  transition: transform .1s, box-shadow .12s;
+}
+.swatch svg { opacity: 0; }
+.swatch:hover { transform: scale(1.08); }
+.swatch.on { box-shadow: 0 0 0 2px var(--win), 0 0 0 4px var(--ink-3); }
+.swatch.on svg { opacity: 1; }
+
 .cap-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 14px; max-width: 1100px;
