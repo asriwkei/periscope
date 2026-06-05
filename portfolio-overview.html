@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Portfolio Overview</title>
+<style>
+  :root {
+    --bg:        #F4F6F9;
+    --win:       #FFFFFF;
+    --surface-2: #EEF0F3;
+    --line:      #E6E9EE;
+    --line-2:    #D9DDE3;
+    --ink-1:     #1B2230;
+    --ink-2:     #3D4757;
+    --ink-3:     #6B7686;
+    --ink-4:     #9AA4B2;
+    --radius:    14px;
+    --radius-pill: 999px;
+    --shadow-card: 0 1px 2px rgba(20,28,45,0.06), 0 1px 3px rgba(20,28,45,0.05);
+    --shadow-pop:  0 8px 28px rgba(20,28,45,0.16), 0 2px 6px rgba(20,28,45,0.10);
+
+    --discovery:      #7A5AE0; --discovery-soft: #F0ECFB; --discovery-ink: #5B43B0;
+    --building:       #3D52A0; --building-soft:  #ECEEF8; --building-ink:  #34468C;
+    --needs:          #E0A93B; --needs-soft:     #FAF1DC; --needs-ink:     #946011;
+    --released:       #2E9E76; --released-soft:  #E3F2EB; --released-ink:  #1E7A55;
+    --paused:         #8A94A6; --paused-soft:    #EEF0F3; --paused-ink:    #5B6472;
+    --blocked:        #C0392B; --blocked-soft:   #FBECEA; --blocked-ink:   #B33124;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--ink-1);
+    font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+  .app { max-width: 1240px; margin: 0 auto; padding: 28px 30px 48px; }
+
+  .page-head { margin-bottom: 20px; }
+  .page-head h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
+  .page-head p { color: var(--ink-3); font-size: 13.5px; margin-top: 4px; }
+
+  /* ---------- stat cards ---------- */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .stat {
+    background: var(--win); border: 0.5px solid var(--line); border-radius: var(--radius);
+    padding: 16px 18px; box-shadow: var(--shadow-card);
+  }
+  .stat .s-lbl { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-3); font-weight: 500; }
+  .stat .s-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .stat .s-num { font-size: 30px; font-weight: 680; margin-top: 8px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+  /* ---------- toolbar ---------- */
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .filters .f-lbl { font-size: 12px; font-weight: 600; color: var(--ink-4); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px; }
+
+  .dd { position: relative; }
+  .dd-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--win); border: 0.5px solid var(--line-2); border-radius: 10px;
+    padding: 8px 12px; font-size: 13px; color: var(--ink-2); cursor: pointer; font-weight: 500;
+    transition: border-color .12s, background .12s;
+  }
+  .dd-btn:hover { border-color: var(--ink-4); }
+  .dd-btn.active { border-color: var(--ink-2); background: var(--surface-2); }
+  .dd-btn .caret { width: 9px; height: 9px; border-right: 1.6px solid var(--ink-4); border-bottom: 1.6px solid var(--ink-4); transform: rotate(45deg) translate(-1px,-1px); transition: transform .15s; }
+  .dd-btn.open .caret { transform: rotate(-135deg); }
+  .dd-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 50; width: 230px;
+    background: var(--win); border: 0.5px solid var(--line); border-radius: 12px;
+    box-shadow: var(--shadow-pop); padding: 6px; max-height: 320px; overflow-y: auto;
+  }
+  .dd-menu.hidden { display: none; }
+  .dd-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 8px; }
+  .dd-head span { font-size: 11.5px; font-weight: 600; color: var(--ink-4); text-transform: uppercase; letter-spacing: 0.05em; }
+  .dd-clear { font-size: 12px; color: var(--building); background: none; border: none; cursor: pointer; font-weight: 500; }
+  .dd-clear:hover { text-decoration: underline; }
+  .dd-item {
+    display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+    background: none; border: none; border-radius: 8px; padding: 8px 9px; cursor: pointer;
+    font-size: 13px; color: var(--ink-1);
+  }
+  .dd-item:hover { background: var(--surface-2); }
+  .dd-box {
+    width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--line-2);
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .dd-item.on .dd-box { background: var(--ink-1); border-color: var(--ink-1); }
+  .dd-box svg { opacity: 0; }
+  .dd-item.on .dd-box svg { opacity: 1; }
+  .dd-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dd-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---------- view toggle ---------- */
+  .toggle { display: inline-flex; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 2px; }
+  .toggle button {
+    border: none; background: none; padding: 7px 16px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; font-weight: 550; color: var(--ink-3); transition: all .14s;
+  }
+  .toggle button.on { background: var(--win); color: var(--ink-1); box-shadow: var(--shadow-card); }
+
+  /* ---------- list view ---------- */
+  .list-wrap { display: grid; grid-template-columns: 1fr 230px; gap: 18px; align-items: start; }
+  .cards { display: flex; flex-direction: column; gap: 12px; }
+
+  .card {
+    background: var(--win); border: 0.5px solid var(--line); border-radius: var(--radius);
+    padding: 16px 18px; box-shadow: var(--shadow-card); transition: box-shadow .14s, transform .14s;
+  }
+  .card:hover { box-shadow: var(--shadow-pop); transform: translateY(-1px); }
+  .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .card-id .c-name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  .card-id .c-epics { font-size: 12.5px; color: var(--ink-4); margin-top: 2px; }
+  .card-desc { color: var(--ink-2); font-size: 13px; margin: 11px 0 14px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+    height: 24px; padding: 0 11px; border-radius: var(--radius-pill);
+    font-size: 12px; font-weight: 600; white-space: nowrap;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  .meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding-top: 13px; border-top: 0.5px solid var(--line); }
+  .meta .m-lbl { font-size: 10.5px; font-weight: 600; color: var(--ink-4); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+  .meta .m-val { font-size: 13px; color: var(--ink-1); font-weight: 500; display: flex; align-items: center; gap: 7px; }
+  .meta .m-val.muted { color: var(--ink-4); font-weight: 400; }
+  .team-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ---------- sidebar ---------- */
+  .sidebar {
+    background: var(--win); border: 0.5px solid var(--line); border-radius: var(--radius);
+    padding: 18px; box-shadow: var(--shadow-card); position: sticky; top: 18px;
+  }
+  .side-h { font-size: 12px; font-weight: 600; color: var(--ink-4); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+  .brk { display: flex; flex-direction: column; gap: 2px; }
+  .brk-row { display: flex; align-items: center; gap: 9px; padding: 6px 0; }
+  .brk-row .b-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .brk-row .b-lbl { flex: 1; font-size: 13px; color: var(--ink-1); }
+  .brk-row .b-cnt { font-size: 13px; font-weight: 600; color: var(--ink-1); font-variant-numeric: tabular-nums; }
+  .brk-row.zero .b-lbl, .brk-row.zero .b-cnt { color: var(--ink-4); }
+  .chart { margin-top: 16px; padding-top: 16px; border-top: 0.5px solid var(--line); }
+  .donut-wrap { display: flex; justify-content: center; position: relative; }
+  .donut-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
+  .donut-center .dc-num { font-size: 24px; font-weight: 680; letter-spacing: -0.02em; }
+  .donut-center .dc-lbl { font-size: 10.5px; color: var(--ink-4); text-transform: uppercase; letter-spacing: 0.05em; }
+  .donut-empty { color: var(--ink-4); font-size: 12.5px; text-align: center; padding: 28px 0; }
+
+  /* ---------- kanban view ---------- */
+  .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: start; }
+  .kcol { background: var(--win); border: 0.5px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-card); }
+  .kcol-top { height: 3px; }
+  .kcol-head { padding: 14px 14px 10px; }
+  .kcol-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .kcol-title h3 { font-size: 13.5px; font-weight: 650; }
+  .kcol-sub { font-size: 11.5px; color: var(--ink-4); margin-top: 2px; }
+  .kcount { font-size: 12px; font-weight: 600; color: var(--ink-3); background: var(--surface-2); border-radius: var(--radius-pill); padding: 2px 9px; font-variant-numeric: tabular-nums; }
+  .kcol-body { padding: 4px 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .kcard {
+    background: var(--win); border: 0.5px solid var(--line-2); border-radius: 11px;
+    padding: 12px 13px; transition: box-shadow .14s, transform .14s;
+  }
+  .kcard:hover { box-shadow: var(--shadow-card); transform: translateY(-1px); }
+  .kcard.accent { border-left: 3px solid var(--needs); }
+  .kcard .k-name { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; }
+  .kcard .k-epics { font-size: 11.5px; color: var(--ink-4); margin-top: 2px; }
+  .kcard .k-rows { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .kcard .k-row { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-2); }
+  .kcard .k-row .k-rl { color: var(--ink-4); font-size: 11px; min-width: 58px; }
+  .kempty { text-align: center; color: var(--ink-4); font-size: 12.5px; padding: 22px 0; border: 1px dashed var(--line-2); border-radius: 10px; }
+
+  .hidden { display: none !important; }
+  .empty-all { background: var(--win); border: 0.5px solid var(--line); border-radius: var(--radius); padding: 48px; text-align: center; color: var(--ink-3); box-shadow: var(--shadow-card); }
+  .empty-all b { display: block; color: var(--ink-2); margin-bottom: 4px; font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="page-head">
+    <h1>Portfolio Overview</h1>
+    <p>Track every initiative across discovery, build, and release.</p>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="toolbar">
+    <div class="filters">
+      <span class="f-lbl">Filter</span>
+      <div class="dd" id="dd-init"></div>
+      <div class="dd" id="dd-status"></div>
+      <div class="dd" id="dd-area"></div>
+      <button class="dd-clear hidden" id="clearAll" style="margin-left:2px;">Clear all</button>
+    </div>
+    <div class="toggle" id="toggle">
+      <button data-view="list" class="on">List</button>
+      <button data-view="kanban">Kanban</button>
+    </div>
+  </div>
+
+  <div id="view-list"></div>
+  <div id="view-kanban" class="hidden"></div>
+</div>
+
+<script>
+/* ============================ DATA ============================ */
+const STATUS = {
+  discovery:       { label: "Discovery",       color: "#7A5AE0", soft: "#F0ECFB", ink: "#5B43B0" },
+  building:        { label: "Building",         color: "#3D52A0", soft: "#ECEEF8", ink: "#34468C" },
+  needs_attention: { label: "Needs attention",  color: "#E0A93B", soft: "#FAF1DC", ink: "#946011" },
+  released:        { label: "Released",         color: "#2E9E76", soft: "#E3F2EB", ink: "#1E7A55" },
+  paused:          { label: "Paused",           color: "#8A94A6", soft: "#EEF0F3", ink: "#5B6472" },
+  blocked:         { label: "Blocked",          color: "#C0392B", soft: "#FBECEA", ink: "#B33124" },
+};
+const STATUS_ORDER = ["discovery", "building", "needs_attention", "released", "paused", "blocked"];
+
+const TEAM_COLOR = {
+  "Platform": "#3D52A0", "Mobile": "#2E9E76", "Growth": "#B5763A",
+  "Security": "#C0392B", "AI": "#7A5AE0", "Payments": "#2F8FA6",
+};
+
+const DATA = [
+  { id: "i1",  name: "Unified Search Revamp",   status: "discovery",       epics: 4, description: "Rebuild search ranking with a unified relevance model across products.", impact_area: "GP1",          est_impact: "+12% search CTR",     team: "Platform", target_date: "Aug 15" },
+  { id: "i2",  name: "Mobile Offline Mode",     status: "discovery",       epics: 3, description: "Let users read and edit while offline, syncing changes on reconnect.",     impact_area: "Cost savings", est_impact: "−$240K infra / yr",  team: "Mobile",   target_date: null     },
+  { id: "i3",  name: "Onboarding Redesign",     status: "discovery",       epics: 5, description: "Streamline first-run setup into a guided three-step flow.",                 impact_area: "Time savings", est_impact: "−30% time-to-value", team: "Growth",   target_date: "Sep 2"  },
+  { id: "i4",  name: "Data Residency Controls", status: "discovery",       epics: 2, description: "Region-pinned storage and processing for regulated customers.",            impact_area: "Compliance",   est_impact: "EU market unlock",   team: "Security", target_date: "Oct 10" },
+  { id: "i5",  name: "AI Summaries",            status: "discovery",       epics: 6, description: "Auto-summarize long threads and documents inline.",                       impact_area: "GP1",          est_impact: "+8% engagement",     team: "AI",       target_date: null     },
+  { id: "i6",  name: "Billing Self-Serve",      status: "discovery",       epics: 3, description: "Self-service plan changes, invoices, and seat management.",                impact_area: "Cost savings", est_impact: "−$120K support",     team: "Payments", target_date: "Aug 28" },
+  { id: "i7",  name: "SSO & SCIM Provisioning", status: "building",        epics: 4, description: "Enterprise sign-on with automated user lifecycle management.",             impact_area: "Compliance",   est_impact: "Enterprise unlock",  team: "Security", target_date: "Jul 20" },
+  { id: "i8",  name: "Realtime Collaboration",  status: "building",        epics: 7, description: "Multiplayer editing with presence and conflict-free merges.",              impact_area: "GP1",          est_impact: "+15% retention",     team: "Platform", target_date: "Sep 30" },
+  { id: "i9",  name: "Notification Center",     status: "needs_attention", epics: 3, description: "Centralized, batched notifications with per-channel controls.",             impact_area: "Time savings", est_impact: "−20% missed actions",team: "Growth",   target_date: "Jul 5"  },
+  { id: "i10", name: "Dashboard Performance",   status: "released",        epics: 2, description: "Incremental data loading and caching for instant dashboards.",              impact_area: "Cost savings", est_impact: "−45% load time",     team: "Platform", target_date: "Jun 1"  },
+];
+
+/* ============================ STATE ============================ */
+const state = {
+  view: "list",
+  filters: { init: new Set(), status: new Set(), area: new Set() },
+};
+
+function filtered() {
+  const { init, status, area } = state.filters;
+  return DATA.filter(d =>
+    (init.size === 0   || init.has(d.id)) &&
+    (status.size === 0 || status.has(d.status)) &&
+    (area.size === 0   || area.has(d.impact_area)));
+}
+
+/* ============================ HELPERS ============================ */
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const CHECK = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+const teamDot = (team) => `<span class="team-dot" style="background:${TEAM_COLOR[team] || '#9AA4B2'}"></span>`;
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+/* ============================ STAT CARDS ============================ */
+function renderStats() {
+  const list = filtered();
+  const count = (s) => list.filter(d => d.status === s).length;
+  const cards = [
+    { lbl: "Total initiatives", num: list.length,             color: null },
+    { lbl: "Discovery",         num: count("discovery"),      color: STATUS.discovery.color },
+    { lbl: "Building",          num: count("building"),       color: STATUS.building.color },
+    { lbl: "Needs attention",   num: count("needs_attention"),color: STATUS.needs_attention.color },
+  ];
+  const wrap = document.getElementById("stats");
+  wrap.innerHTML = "";
+  cards.forEach(c => {
+    const card = el("div", "stat");
+    card.innerHTML =
+      `<div class="s-lbl">${c.color ? `<span class="s-dot" style="background:${c.color}"></span>` : ""}${c.lbl}</div>` +
+      `<div class="s-num" ${c.color ? `style="color:${c.color}"` : ""}>${c.num}</div>`;
+    wrap.appendChild(card);
+  });
+}
+
+/* ============================ FILTER DROPDOWNS ============================ */
+function buildDropdown(mountId, key, label, items) {
+  const mount = document.getElementById(mountId);
+  mount.innerHTML = "";
+  const set = state.filters[key];
+  const summary = set.size === 0 ? "All"
+    : set.size === 1 ? (items.find(it => it.val === [...set][0]) || {}).name || "1"
+    : set.size + " selected";
+
+  const btn = el("button", "dd-btn" + (set.size ? " active" : ""));
+  btn.innerHTML = `<span>${esc(label)}: ${esc(summary)}</span><span class="caret"></span>`;
+
+  const menu = el("div", "dd-menu hidden");
+  const head = el("div", "dd-head");
+  head.innerHTML = `<span>${esc(label)}</span>`;
+  if (set.size) {
+    const clr = el("button", "dd-clear", "Clear");
+    clr.onclick = (e) => { e.stopPropagation(); set.clear(); render(); };
+    head.appendChild(clr);
+  }
+  menu.appendChild(head);
+
+  items.forEach(it => {
+    const on = set.has(it.val);
+    const item = el("button", "dd-item" + (on ? " on" : ""));
+    item.innerHTML =
+      `<span class="dd-box">${CHECK}</span>` +
+      (it.color ? `<span class="dd-dot" style="background:${it.color}"></span>` : "") +
+      `<span class="dd-label">${esc(it.name)}</span>`;
+    item.onclick = (e) => { e.stopPropagation(); on ? set.delete(it.val) : set.add(it.val); render(); };
+    menu.appendChild(item);
+  });
+
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const isOpen = !menu.classList.contains("hidden");
+    closeAllMenus();
+    if (!isOpen) { menu.classList.remove("hidden"); btn.classList.add("open"); }
+  };
+
+  mount.appendChild(btn);
+  mount.appendChild(menu);
+}
+
+function closeAllMenus() {
+  document.querySelectorAll(".dd-menu").forEach(m => m.classList.add("hidden"));
+  document.querySelectorAll(".dd-btn").forEach(b => b.classList.remove("open"));
+}
+document.addEventListener("click", closeAllMenus);
+
+function renderFilters() {
+  buildDropdown("dd-init", "init", "Initiative", DATA.map(d => ({ val: d.id, name: d.name })));
+  buildDropdown("dd-status", "status", "Status", STATUS_ORDER.map(s => ({ val: s, name: STATUS[s].label, color: STATUS[s].color })));
+  const areas = [...new Set(DATA.map(d => d.impact_area))];
+  buildDropdown("dd-area", "area", "Impact area", areas.map(a => ({ val: a, name: a })));
+
+  const any = state.filters.init.size || state.filters.status.size || state.filters.area.size;
+  const clearAll = document.getElementById("clearAll");
+  clearAll.classList.toggle("hidden", !any);
+  clearAll.onclick = () => { state.filters.init.clear(); state.filters.status.clear(); state.filters.area.clear(); render(); };
+}
+
+/* ============================ LIST VIEW ============================ */
+function statusBadge(s) {
+  const c = STATUS[s];
+  return `<span class="badge" style="background:${c.soft};color:${c.ink}"><span class="dot" style="background:${c.color}"></span>${c.label}</span>`;
+}
+
+function renderList() {
+  const list = filtered();
+  const root = document.getElementById("view-list");
+  root.innerHTML = "";
+
+  const wrap = el("div", "list-wrap");
+  const cards = el("div", "cards");
+
+  if (list.length === 0) {
+    cards.appendChild(el("div", "empty-all", "<b>No initiatives match</b>Try clearing a filter to see more."));
+  } else {
+    list.forEach(d => {
+      const card = el("div", "card");
+      card.innerHTML =
+        `<div class="card-head">
+           <div class="card-id">
+             <div class="c-name">${esc(d.name)}</div>
+             <div class="c-epics">${d.epics} epic${d.epics === 1 ? "" : "s"}</div>
+           </div>
+           ${statusBadge(d.status)}
+         </div>
+         <div class="card-desc">${esc(d.description)}</div>
+         <div class="meta">
+           <div><div class="m-lbl">Impact area</div><div class="m-val">${esc(d.impact_area)}</div></div>
+           <div><div class="m-lbl">Est. impact</div><div class="m-val">${esc(d.est_impact)}</div></div>
+           <div><div class="m-lbl">Team</div><div class="m-val">${teamDot(d.team)}${esc(d.team)}</div></div>
+           <div><div class="m-lbl">Target</div><div class="m-val${d.target_date ? "" : " muted"}">${d.target_date ? esc(d.target_date) : "No target"}</div></div>
+         </div>`;
+      cards.appendChild(card);
+    });
+  }
+
+  wrap.appendChild(cards);
+  wrap.appendChild(renderSidebar(list));
+  root.appendChild(wrap);
+}
+
+function renderSidebar(list) {
+  const counts = {};
+  STATUS_ORDER.forEach(s => counts[s] = 0);
+  list.forEach(d => counts[d.status]++);
+
+  const side = el("div", "sidebar");
+  side.appendChild(el("div", "side-h", "Status breakdown"));
+
+  const brk = el("div", "brk");
+  STATUS_ORDER.forEach(s => {
+    const c = STATUS[s];
+    const row = el("div", "brk-row" + (counts[s] ? "" : " zero"));
+    row.innerHTML = `<span class="b-dot" style="background:${c.color}"></span><span class="b-lbl">${c.label}</span><span class="b-cnt">${counts[s]}</span>`;
+    brk.appendChild(row);
+  });
+  side.appendChild(brk);
+
+  const chart = el("div", "chart");
+  chart.appendChild(el("div", "side-h", "By status"));
+  chart.appendChild(renderDonut(counts, list.length));
+  side.appendChild(chart);
+  return side;
+}
+
+function renderDonut(counts, total) {
+  if (total === 0) return el("div", "donut-empty", "No initiatives to chart");
+
+  const size = 150, stroke = 20, r = (size - stroke) / 2, cx = size / 2, cy = size / 2;
+  const C = 2 * Math.PI * r;
+  let offset = 0;
+  let segs = "";
+  STATUS_ORDER.forEach(s => {
+    const v = counts[s];
+    if (!v) return;
+    const frac = v / total;
+    const len = frac * C;
+    segs += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${STATUS[s].color}" stroke-width="${stroke}"
+      stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-offset}" />`;
+    offset += len;
+  });
+
+  const wrap = el("div", "donut-wrap");
+  wrap.innerHTML =
+    `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+       <g transform="rotate(-90 ${cx} ${cy})">
+         <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="${stroke}" />
+         ${segs}
+       </g>
+     </svg>
+     <div class="donut-center"><div class="dc-num">${total}</div><div class="dc-lbl">Total</div></div>`;
+  return wrap;
+}
+
+/* ============================ KANBAN VIEW ============================ */
+const KCOLS = [
+  { title: "Discovery",                  sub: "Exploring",    color: "#7A5AE0", match: (d) => d.status === "discovery" },
+  { title: "Paused / Blocked",           sub: "On hold",      color: "#8A94A6", match: (d) => d.status === "paused" || d.status === "blocked" },
+  { title: "Building / Needs Attention", sub: "In progress",  color: "#3D52A0", match: (d) => d.status === "building" || d.status === "needs_attention" },
+  { title: "Released",                   sub: "Shipped",      color: "#2E9E76", match: (d) => d.status === "released" },
+];
+
+function renderKanban() {
+  const list = filtered();
+  const root = document.getElementById("view-kanban");
+  root.innerHTML = "";
+  const board = el("div", "kanban");
+
+  KCOLS.forEach(col => {
+    const items = list.filter(col.match);
+    const kcol = el("div", "kcol");
+    kcol.innerHTML = `<div class="kcol-top" style="background:${col.color}"></div>`;
+
+    const head = el("div", "kcol-head");
+    head.innerHTML =
+      `<div class="kcol-title"><h3>${esc(col.title)}</h3><span class="kcount">${items.length}</span></div>
+       <div class="kcol-sub">${esc(col.sub)}</div>`;
+    kcol.appendChild(head);
+
+    const body = el("div", "kcol-body");
+    if (items.length === 0) {
+      body.appendChild(el("div", "kempty", "No items"));
+    } else {
+      items.forEach(d => {
+        const accent = d.status === "needs_attention";
+        const kc = el("div", "kcard" + (accent ? " accent" : ""));
+        kc.innerHTML =
+          `<div class="k-name">${esc(d.name)}</div>
+           <div class="k-epics">${d.epics} epic${d.epics === 1 ? "" : "s"}</div>
+           <div class="k-rows">
+             <div class="k-row"><span class="k-rl">Impact</span>${esc(d.est_impact)}</div>
+             <div class="k-row"><span class="k-rl">Team</span>${teamDot(d.team)}${esc(d.team)}</div>
+             <div class="k-row"><span class="k-rl">Target</span>${d.target_date ? esc(d.target_date) : "—"}</div>
+           </div>`;
+        body.appendChild(kc);
+      });
+    }
+    kcol.appendChild(body);
+    board.appendChild(kcol);
+  });
+
+  root.appendChild(board);
+}
+
+/* ============================ VIEW TOGGLE ============================ */
+document.getElementById("toggle").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-view]");
+  if (!btn) return;
+  state.view = btn.dataset.view;
+  document.querySelectorAll("#toggle button").forEach(b => b.classList.toggle("on", b === btn));
+  applyView();
+});
+
+function applyView() {
+  document.getElementById("view-list").classList.toggle("hidden", state.view !== "list");
+  document.getElementById("view-kanban").classList.toggle("hidden", state.view !== "kanban");
+}
+
+/* ============================ RENDER ============================ */
+function render() {
+  renderStats();
+  renderFilters();
+  renderList();
+  renderKanban();
+  applyView();
+}
+render();
+</script>
+</body>
+</html>

@@ -17,8 +17,8 @@ function loadSaved() {
     return p;
   } catch (e) { return null; }
 }
-function saveData(inits, team, teams, memberships) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify({ inits, team, teams, memberships })); } catch (e) {}
+function saveData(inits, team, teams, memberships, statuses) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ inits, team, teams, memberships, statuses })); } catch (e) {}
 }
 // Escape hatch (callable even without devtools, e.g. from a future Settings button):
 // wipe saved data and fall back to the seed demo on next launch.
@@ -28,7 +28,8 @@ window.resetPeriscopeData = function () {
 };
 
 const NAV = [
-  { id: "overview", label: "Initiative Details", icon: "overview" },
+  { id: "portfolio", label: "Portfolio", icon: "portfolio" },
+  { id: "overview", label: "Roadmap", icon: "overview" },
   { id: "capacity", label: "Capacity", icon: "capacity" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
@@ -93,7 +94,71 @@ function StubPage({ icon, title }) {
       <div className="stub-ic"><Icon name={icon} size={26} /></div>
       <div className="badge">Coming soon</div>
       <h2>{title}</h2>
-      <p>This view isn’t built out in the prototype yet. Initiative Details and Capacity are the live, interactive surfaces.</p>
+      <p>This view isn’t built out in the prototype yet. Roadmap and Capacity are the live, interactive surfaces.</p>
+    </div>
+  );
+}
+
+/* Settings — configure the status list (name + colour) used app-wide for
+   initiatives and epics. Add, rename, recolour, or delete statuses; deleting one
+   leaves affected items with "No status". */
+function SettingsPage({ statuses, onAdd, onRename, onRecolor, onDelete }) {
+  const [openColor, setOpenColor] = useStateA(null);  // status id whose palette is open
+  const [confirmDel, setConfirmDel] = useStateA(null); // status id pending delete confirm
+  return (
+    <div className="settings-page">
+      <div className="set-section">
+        <div className="set-head">
+          <h2 className="set-title">Status list</h2>
+          <p className="set-desc">These statuses are used for initiatives and epics across the Roadmap and Portfolio. Edit a name or colour, add new ones, or remove what you don’t need. Deleting a status leaves anything using it with “No status”.</p>
+        </div>
+        <div className="set-status-list">
+          {statuses.map(s => (
+            <div key={s.id} className="set-status-row">
+              <div className="set-color-wrap">
+                <button className="set-color-btn" style={{ background: s.color }}
+                  onClick={() => setOpenColor(o => o === s.id ? null : s.id)} aria-label="Change colour" />
+                {openColor === s.id && (
+                  <React.Fragment>
+                    <div className="set-pop-scrim" onClick={() => setOpenColor(null)} />
+                    <div className="set-color-pop" onClick={(e) => e.stopPropagation()}>
+                      <div className="swatches">
+                        {window.STATUS_COLORS.map(c => (
+                          <button key={c} type="button" className={"swatch" + (s.color === c ? " on" : "")}
+                            style={{ background: c }} onClick={() => { onRecolor(s.id, c); setOpenColor(null); }}
+                            aria-label={"Colour " + c}>
+                            <Icon name="check" size={12} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </React.Fragment>
+                )}
+              </div>
+              <input className="input set-status-name" value={s.label}
+                onChange={(e) => onRename(s.id, e.target.value)} placeholder="Status name" />
+              <span className="set-status-preview" style={{ background: window.statusSoft(s.color), color: window.statusInk(s.color) }}>
+                <span className="dot" style={{ background: s.color }} />{s.label.trim() || "Untitled"}
+              </span>
+              {confirmDel === s.id ? (
+                <span className="set-confirm">
+                  <span className="set-confirm-q">Remove?</span>
+                  <button className="set-mini danger" onClick={() => { onDelete(s.id); setConfirmDel(null); }}>Yes</button>
+                  <button className="set-mini" onClick={() => setConfirmDel(null)}>No</button>
+                </span>
+              ) : (
+                <button className="set-del" onClick={() => setConfirmDel(s.id)}
+                  disabled={statuses.length <= 1}
+                  title={statuses.length <= 1 ? "Keep at least one status" : "Delete status"}
+                  aria-label="Delete status">
+                  <Icon name="trash" size={15} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        <button className="set-add" onClick={onAdd}><Icon name="plus" size={15} />Add status</button>
+      </div>
     </div>
   );
 }
@@ -106,17 +171,19 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  const [page, setPage] = useStateA("overview");
+  const [page, setPage] = useStateA("portfolio");
   const [inits, setInits] = useStateA(() => { const s = loadSaved(); return s ? s.inits : window.INITIATIVES; });
   const [team, setTeam] = useStateA(() => { const s = loadSaved(); const tm = s ? s.team : window.TEAM; window.TEAM = tm; return tm; });
   const [teams, setTeams] = useStateA(() => { const s = loadSaved(); const tm = s && s.teams ? s.teams : window.TEAMS; window.TEAMS = tm; return tm; });
   const [memberships, setMemberships] = useStateA(() => { const s = loadSaved(); const mm = s && s.memberships ? s.memberships : window.TEAM_MEMBERSHIPS; window.TEAM_MEMBERSHIPS = mm; return mm; });
+  const [statuses, setStatuses] = useStateA(() => { const s = loadSaved(); const st = s && Array.isArray(s.statuses) && s.statuses.length ? s.statuses : window.DEFAULT_STATUSES; window.STATUSES = st; return st; });
 
   // keep window globals in sync (avatar/team lookups read them) + auto-save on every change
   React.useEffect(() => { window.TEAM = team; }, [team]);
   React.useEffect(() => { window.TEAMS = teams; }, [teams]);
   React.useEffect(() => { window.TEAM_MEMBERSHIPS = memberships; }, [memberships]);
-  React.useEffect(() => { saveData(inits, team, teams, memberships); }, [inits, team, teams, memberships]);
+  React.useEffect(() => { window.STATUSES = statuses; }, [statuses]);
+  React.useEffect(() => { saveData(inits, team, teams, memberships, statuses); }, [inits, team, teams, memberships, statuses]);
   const [personModal, setPersonModal] = useStateA(null); // {mode:'add'|'edit', person?}
   const [zoom, setZoom] = useStateA("weekly");
   const [showTimeline, setShowTimeline] = useStateA(true);
@@ -231,6 +298,31 @@ function App() {
   function commitTeam(next) { window.TEAM = next; setTeam(next); }
   function commitTeams(next) { window.TEAMS = next; setTeams(next); }
   function commitMemberships(next) { window.TEAM_MEMBERSHIPS = next; setMemberships(next); }
+  // set window.STATUSES synchronously so components reading it re-render fresh
+  function commitStatuses(next) { window.STATUSES = next; setStatuses(next); }
+
+  // ---------- status list mutations (Settings page) ----------
+  function addStatus() {
+    const used = new Set(statuses.map(s => s.color));
+    const color = window.STATUS_COLORS.find(c => !used.has(c)) || window.STATUS_COLORS[statuses.length % window.STATUS_COLORS.length];
+    commitStatuses([...statuses, { id: "st" + Date.now(), label: "New status", color }]);
+  }
+  function renameStatus(id, label) {
+    commitStatuses(statuses.map(s => s.id === id ? { ...s, label } : s));
+  }
+  function recolorStatus(id, color) {
+    commitStatuses(statuses.map(s => s.id === id ? { ...s, color } : s));
+  }
+  function deleteStatus(id) {
+    commitStatuses(statuses.filter(s => s.id !== id));
+    // any initiative/epic using this status falls back to "No status"
+    setInits(prev => prev.map(i => ({
+      ...i,
+      status: i.status === id ? "" : i.status,
+      epics: i.epics.map(e => ({ ...e, status: e.status === id ? "" : e.status })),
+    })));
+    setFilter(prev => prev.filter(x => x !== id));
+  }
 
   function savePerson({ name, role }) {
     const nm = name.trim();
@@ -307,6 +399,12 @@ function App() {
             />
           )}
           <div className="content">
+            {page === "portfolio" && (
+              <PortfolioPage
+                inits={inits} teams={teams}
+                onOpenInitiative={(initId) => setStatusModal({ initId, epicId: null, startInEdit: false })}
+              />
+            )}
             {page === "overview" && (
               <OverviewPage inits={inits} teams={teams} zoom={zoom} barStyle={t.barStyle} nowWeek={nowWeek} filter={filter} teamFilter={teamFilter} initFilter={initFilter} showTimeline={showTimeline} handlers={handlers} />
             )}
@@ -321,7 +419,15 @@ function App() {
                 onNewTeam={() => setTeamModal({ mode: "add" })}
               />
             )}
-            {page === "settings" && <StubPage icon="settings" title="Settings" />}
+            {page === "settings" && (
+              <SettingsPage
+                statuses={statuses}
+                onAdd={addStatus}
+                onRename={renameStatus}
+                onRecolor={recolorStatus}
+                onDelete={deleteStatus}
+              />
+            )}
           </div>
         </div>
       </div>

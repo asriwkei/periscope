@@ -40,7 +40,21 @@ function dayToISO(days) {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
 
-function TimelineBar({ item, kind, onChange }) {
+/* Inline colour for an epic bar, derived from its status' configured colour and
+   the current bar style (filled / soft / outline). Empty/unknown status → grey. */
+function epicBarStyle(status, barStyle) {
+  const s = window.statusById(status);
+  const base = s ? s.color : "#A6ADBA"; // neutral grey for "No status"
+  if (barStyle === "soft") {
+    return { background: window.statusSoft(base), color: window.statusInk(base), boxShadow: "inset 0 0 0 0.5px rgba(0,0,0,0.06)" };
+  }
+  if (barStyle === "outline") {
+    return { background: "transparent", color: window.statusInk(base), boxShadow: "inset 0 0 0 1.5px " + base };
+  }
+  return { background: base, color: window.statusText(base) }; // filled (default)
+}
+
+function TimelineBar({ item, kind, barStyle, onChange }) {
   const ref = useRef(null);
   const lastRef = useRef(null);
   const [drag, setDrag] = useState(null);
@@ -104,7 +118,9 @@ function TimelineBar({ item, kind, onChange }) {
     window.addEventListener("pointerup", up);
   }
 
-  const cls = kind === "epic" ? "bar " + item.status : "bar init-bar";
+  const isEpic = kind === "epic";
+  const cls = isEpic ? "bar" : "bar init-bar";
+  const colorStyle = isEpic ? epicBarStyle(item.status, barStyle) : null;
   const hasDue = !!item.due;
   const dueLeftPx = hasDue ? Math.max(0, Math.min(totalDays, isoToDay(item.due))) * dayW : null;
 
@@ -113,7 +129,7 @@ function TimelineBar({ item, kind, onChange }) {
       <div
         ref={ref}
         className={cls + (drag ? " dragging" : "")}
-        style={{ left: leftPx + "px", width: widthPx + "px", cursor: resizable ? "grab" : "default" }}
+        style={{ left: leftPx + "px", width: widthPx + "px", cursor: resizable ? "grab" : "default", ...(colorStyle || {}) }}
         onPointerDown={resizable ? (e) => startDrag("move", e) : undefined}
       >
         {resizable && <div className="handle l" onPointerDown={(e) => { e.stopPropagation(); startDrag("left", e); }} />}

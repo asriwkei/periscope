@@ -24,6 +24,7 @@ function openUrl(url) {
 
 const ICONS = {
   overview: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
+  portfolio: "M21 15.5A9 9 0 1 1 8.5 3M21 12a9 9 0 0 0-9-9v9z",
   capacity: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
   gantt: "M8 6h12M8 12h9M8 18h6M3 6h.01M3 12h.01M3 18h.01",
   milestones: "M4 21V4a1 1 0 0 1 1-1h11l-2.5 4L16 11H5M4 21H3M4 21h2",
@@ -67,13 +68,69 @@ function Avatar({ person, size }) {
   );
 }
 
+/* ---------- configurable status system ----------
+   The status list is user-editable on the Settings page and persisted with the
+   rest of the app data. `window.STATUSES` is the single source of truth; every
+   surface (pills, filters, modal selects, portfolio, timeline bars) derives
+   from it. Each status is { id, label, color }. Pill/bar colours are computed
+   from the base hex (soft background + dark ink) so any palette colour works. */
+const DEFAULT_STATUSES = [
+  { id: "todo",     label: "Discovery",       color: "#7A5AE0" },
+  { id: "on-track", label: "Building",        color: "#3D52A0" },
+  { id: "at-risk",  label: "Needs attention", color: "#E0A93B" },
+  { id: "done",     label: "Released",        color: "#2E9E76" },
+  { id: "blocked",  label: "Blocked",         color: "#C0392B" },
+];
+// initialise the global before any component renders (App overrides from saved data)
+if (!window.STATUSES) window.STATUSES = DEFAULT_STATUSES;
+
+// swatch palette offered when picking/editing a status colour
+const STATUS_COLORS = [
+  "#3D52A0", "#2E9E76", "#E0A93B", "#C0392B", "#7A5AE0",
+  "#2F8FA6", "#B0506E", "#5E8B45", "#1E7A8C", "#8A5A2B",
+  "#476C9B", "#9B59B6",
+];
+
+function statusById(id) { return (window.STATUSES || []).find(s => s.id === id) || null; }
+
+// colour math: mix a base hex toward white (soft bg) or black (ink text)
+function hexToRgb(hex) {
+  const h = (hex || "").replace("#", "");
+  const n = h.length === 3 ? h.split("").map(c => c + c).join("") : h;
+  return [parseInt(n.slice(0, 2), 16), parseInt(n.slice(2, 4), 16), parseInt(n.slice(4, 6), 16)];
+}
+function mixHex(hex, target, t) {
+  const c = hexToRgb(hex);
+  if (c.some(Number.isNaN)) return hex;
+  const m = c.map((v, i) => Math.round(v + (target[i] - v) * t));
+  return `rgb(${m[0]}, ${m[1]}, ${m[2]})`;
+}
+function statusSoft(hex) { return mixHex(hex, [255, 255, 255], 0.87); }
+function statusInk(hex)  { return mixHex(hex, [0, 0, 0], 0.34); }
+// readable text colour on a solid fill of `hex` (white on dark, dark on light)
+function statusText(hex) {
+  const [r, g, b] = hexToRgb(hex);
+  if ([r, g, b].some(Number.isNaN)) return "#fff";
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? "rgba(0,0,0,0.72)" : "#fff";
+}
+
 const STATUS_LABEL = { "on-track": "Building", "at-risk": "Needs attention", "done": "Released", "todo": "Discovery", "blocked": "Blocked" };
 
 function Pill({ status, onClick, isStatic }) {
+  const s = statusById(status);
+  if (!s) {
+    return (
+      <span className={"pill empty" + (isStatic ? " static" : "")} onClick={onClick}>
+        <span className="dot" style={{ background: "var(--ink-4)" }} />
+        No status
+      </span>
+    );
+  }
   return (
-    <span className={"pill " + status + (isStatic ? " static" : "")} onClick={onClick}>
-      <span className="dot" />
-      {STATUS_LABEL[status]}
+    <span className={"pill" + (isStatic ? " static" : "")} onClick={onClick}
+      style={{ background: statusSoft(s.color), color: statusInk(s.color) }}>
+      <span className="dot" style={{ background: s.color }} />
+      {s.label}
     </span>
   );
 }
@@ -122,6 +179,7 @@ function monthGroups() {
 }
 
 Object.assign(window, { Icon, Avatar, Pill, STATUS_LABEL, weekMonday, weekLabel, isoWeekNum, periodLabel, monthGroups, openUrl });
+Object.assign(window, { DEFAULT_STATUSES, STATUS_COLORS, statusById, statusSoft, statusInk, statusText });
 
 // person helpers
 const PERSON_COLORS = ["#3D52A0", "#2E9E76", "#B5763A", "#7A5AE0", "#2F8FA6", "#B0506E", "#5E8B45", "#C0392B", "#1E7A8C", "#8A5A2B"];

@@ -2,13 +2,15 @@
 
 const { useState: useStateM } = React;
 
-const STATUS_OPTS = [
-  { v: "todo", l: "Discovery" },
-  { v: "on-track", l: "Building" },
-  { v: "at-risk", l: "Needs attention" },
-  { v: "blocked", l: "Blocked" },
-  { v: "done", l: "Released" },
-];
+/* Status options are derived live from the user-configured status list
+   (window.STATUSES). A leading blank option lets an item have "No status". */
+function statusOpts() {
+  return (window.STATUSES || []).map(s => ({ v: s.id, l: s.label }));
+}
+function defaultStatusId() {
+  const list = window.STATUSES || [];
+  return list.length ? list[0].id : "";
+}
 
 /* Impact type options for initiatives. */
 const IMPACT_TYPES = ["GP1", "Cost savings", "Compliance", "Time savings"];
@@ -197,7 +199,8 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
               <div className="field" style={{ marginTop: 14 }}>
                 <label>Status</label>
                 <select className="select" value={form.status} onChange={(e) => set("status", e.target.value)}>
-                  {STATUS_OPTS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                  <option value="">No status</option>
+                  {statusOpts().map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
                 </select>
               </div>
               <div className="field">
@@ -311,7 +314,7 @@ function StatusModal({ item, kind, startInEdit, onClose, onSave }) {
 }
 
 function AddEpicModal({ initiative, onClose, onCreate }) {
-  const [f, setF] = useStateM({ name: "", ticket: "", start: weekToISO(0), end: weekToISO(2), status: "on-track", assignees: [] });
+  const [f, setF] = useStateM({ name: "", ticket: "", start: weekToISO(0), end: weekToISO(2), status: defaultStatusId(), assignees: [] });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
   const valid = f.name.trim().length > 0;
 
@@ -351,7 +354,8 @@ function AddEpicModal({ initiative, onClose, onCreate }) {
             <div className="field">
               <label>Status</label>
               <select className="select" value={f.status} onChange={(e) => set("status", e.target.value)}>
-                {STATUS_OPTS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                <option value="">No status</option>
+                {statusOpts().map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
               </select>
             </div>
           </div>
@@ -376,7 +380,7 @@ function AddEpicModal({ initiative, onClose, onCreate }) {
 }
 
 function AddInitiativeModal({ onClose, onCreate }) {
-  const [f, setF] = useStateM({ name: "", status: "on-track", estImpact: "", impactType: "", start: weekToISO(0), end: weekToISO(6) });
+  const [f, setF] = useStateM({ name: "", status: defaultStatusId(), estImpact: "", impactType: "", start: weekToISO(0), end: weekToISO(6) });
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
   const valid = f.name.trim().length > 0;
 
@@ -416,7 +420,8 @@ function AddInitiativeModal({ onClose, onCreate }) {
           <div className="field">
             <label>Status</label>
             <select className="select" value={f.status} onChange={(e) => set("status", e.target.value)}>
-              {STATUS_OPTS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+              <option value="">No status</option>
+              {statusOpts().map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
             </select>
           </div>
           <div className="field">

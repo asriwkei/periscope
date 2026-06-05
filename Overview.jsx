@@ -2,13 +2,11 @@
 
 const { useState: useStateO } = React;
 
-/* Status filter options. `color` is a CSS token string so dots stay token-driven.
-   Adding a status later = append one entry here; the dropdown picks it up. */
-const STATUS_FILTERS = [
-  { id: "on-track", name: "Building", color: "var(--green)" },
-  { id: "at-risk", name: "Needs attention", color: "var(--amber)" },
-  { id: "done", name: "Released", color: "var(--done)" },
-];
+/* Status filter options are derived live from the user-configured status list
+   (window.STATUSES) so editing statuses in Settings updates the dropdown. */
+function statusFilterItems() {
+  return (window.STATUSES || []).map(s => ({ id: s.id, name: s.label, color: s.color }));
+}
 
 function TeamCell({ teamId, onClick }) {
   const team = window.teamById(window.TEAMS, teamId);
@@ -59,7 +57,7 @@ function InitiativeRow({ init, zoom, nowWeek, ctxOpen, showTimeline, onToggle, o
   );
 }
 
-function EpicRow({ init, epic, zoom, nowWeek, ctxOpen, showTimeline, onMenu, onStatus, onResize, onAddAssignee, onTeamCell, dragProps, dragOverPos, isDragging }) {
+function EpicRow({ init, epic, zoom, nowWeek, ctxOpen, showTimeline, barStyle, onMenu, onStatus, onResize, onAddAssignee, onTeamCell, dragProps, dragOverPos, isDragging }) {
   const byId = Object.fromEntries(window.TEAM.map(p => [p.id, p]));
   const shown = epic.assignees.slice(0, 3);
   const extra = epic.assignees.length - shown.length;
@@ -93,7 +91,7 @@ function EpicRow({ init, epic, zoom, nowWeek, ctxOpen, showTimeline, onMenu, onS
         <div className="cell-timeline">
           <GridBg zoom={zoom} nowWeek={nowWeek} />
           <div className="tl-track">
-            <TimelineBar item={epic} kind="epic" onChange={(r) => onResize(init.id, epic.id, r)} />
+            <TimelineBar item={epic} kind="epic" barStyle={barStyle} onChange={(r) => onResize(init.id, epic.id, r)} />
           </div>
         </div>
       )}
@@ -113,11 +111,11 @@ function InitTLRow({ init, zoom, nowWeek, onResize }) {
   );
 }
 
-function EpicTLRow({ init, epic, zoom, nowWeek, onResize }) {
+function EpicTLRow({ init, epic, zoom, nowWeek, barStyle, onResize }) {
   return (
     <div className="rp-row epic">
       <GridBg zoom={zoom} nowWeek={nowWeek} />
-      <div className="tl-track"><TimelineBar item={epic} kind="epic" onChange={(r) => onResize(init.id, epic.id, r)} /></div>
+      <div className="tl-track"><TimelineBar item={epic} kind="epic" barStyle={barStyle} onChange={(r) => onResize(init.id, epic.id, r)} /></div>
     </div>
   );
 }
@@ -208,7 +206,7 @@ function FilterBar({ inits, teams, filter, setFilter, teamFilter, setTeamFilter,
     <div className="fbar">
       <span className="fbar-lbl">Filter</span>
       <div className="fbar-drops">
-        <FilterDropdown label="Status" items={STATUS_FILTERS} value={filter} setValue={setFilter} />
+        <FilterDropdown label="Status" items={statusFilterItems()} value={filter} setValue={setFilter} />
         <FilterDropdown label="Team" items={teamItems} value={teamFilter} setValue={setTeamFilter} />
         <FilterDropdown label="Initiative" items={initItems} value={initFilter} setValue={setInitFilter} />
       </div>
@@ -377,7 +375,7 @@ function OverviewPage({ inits, teams, zoom, barStyle, nowWeek, filter, teamFilte
                     <EpicRow
                       key={epic.id} init={init} epic={epic} zoom={zoom} nowWeek={nowWeek}
                       ctxOpen={ctx && ctx.kind === "epic" && ctx.epicId === epic.id}
-                      showTimeline={false}
+                      showTimeline={false} barStyle={barStyle}
                       onMenu={onMenu} onStatus={handlers.openStatus}
                       onResize={handlers.resizeEpic} onAddAssignee={onAddAssignee} onTeamCell={onTeamCell}
                       dragProps={makeDragProps("epic", init.id, epic.id)}
@@ -450,7 +448,7 @@ function OverviewPage({ inits, teams, zoom, barStyle, nowWeek, filter, teamFilte
                           <EpicRow
                             key={epic.id} init={init} epic={epic} zoom={zoom} nowWeek={nowWeek}
                             ctxOpen={ctx && ctx.kind === "epic" && ctx.epicId === epic.id}
-                            showTimeline={false}
+                            showTimeline={false} barStyle={barStyle}
                             onMenu={onMenu} onStatus={handlers.openStatus}
                             onResize={handlers.resizeEpic} onAddAssignee={onAddAssignee} onTeamCell={onTeamCell}
                             dragProps={makeDragProps("epic", init.id, epic.id)}
@@ -491,7 +489,7 @@ function OverviewPage({ inits, teams, zoom, barStyle, nowWeek, filter, teamFilte
                     {expanded && (
                       <React.Fragment>
                         {epics.map(epic => (
-                          <EpicTLRow key={epic.id} init={init} epic={epic} zoom={zoom} nowWeek={nowWeek} onResize={handlers.resizeEpic} />
+                          <EpicTLRow key={epic.id} init={init} epic={epic} zoom={zoom} nowWeek={nowWeek} barStyle={barStyle} onResize={handlers.resizeEpic} />
                         ))}
                         {!anyFilter && <div className="rp-spacer add-epic-h" />}
                       </React.Fragment>
