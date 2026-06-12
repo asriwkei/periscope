@@ -402,7 +402,7 @@ function App() {
             {page === "portfolio" && (
               <PortfolioPage
                 inits={inits} teams={teams}
-                onOpenInitiative={(initId) => setStatusModal({ initId, epicId: null, startInEdit: false })}
+                onSaveInitiative={setInit}
               />
             )}
             {page === "overview" && (

@@ -1203,3 +1203,84 @@ body.is-dragging * { cursor: grabbing !important; }
   padding: 8px 14px; border: 0.5px dashed var(--line); border-radius: 9px; background: none;
 }
 .set-add:hover { background: var(--surface-2); color: var(--ink-1); }
+
+/* ======================= EXECUTIVE PORTFOLIO MODAL ======================= */
+.modal.exec { width: 760px; }
+.modal.exec .modal-head { padding: 22px 26px 18px; align-items: flex-start; }
+.modal.exec .modal-title { font-size: 21px; font-weight: 500; letter-spacing: -0.018em; }
+.exec-head-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.exec-edit-btn {
+  height: 30px; padding: 0 13px 0 11px; border-radius: 8px;
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 500; font-family: inherit; cursor: pointer;
+  border: 0.5px solid var(--line-2); background: var(--win); color: var(--ink-1);
+  transition: background .12s, border-color .12s;
+}
+.exec-edit-btn:hover { background: var(--surface-2); border-color: var(--line-2); }
+.exec-edit-btn svg { width: 13px; height: 13px; color: var(--ink-2); }
+
+.modal.exec .modal-body { padding: 6px 26px 24px; }
+
+/* lead description */
+.exec-desc {
+  margin: 12px 0 0; font-size: 14.5px; line-height: 1.62; color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+/* metric strip: impact area + estimated impact + target release + team */
+.exec-strip {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 0.5px solid var(--line-2); border-radius: 12px; overflow: hidden;
+  margin: 20px 0 4px; background: var(--win);
+}
+.exec-stat { padding: 15px 18px; min-width: 0; }
+.exec-stat + .exec-stat { border-left: 0.5px solid var(--line); }
+.exec-stat .es-lbl {
+  font-size: 10px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--ink-4); margin-bottom: 7px; white-space: nowrap;
+}
+.exec-stat .es-val {
+  font-size: 16px; font-weight: 500; color: var(--ink-1); letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums; line-height: 1.2;
+}
+.exec-stat .es-val.impact-high { color: var(--green-ink); }
+.exec-stat .es-val.impact-medium { color: var(--amber-ink); }
+.exec-stat .es-val.impact-none { color: var(--ink-3); font-weight: 400; }
+.exec-stat .es-val.tone-warn { color: var(--amber-ink); }
+.exec-stat .es-val.tone-done { color: var(--green-ink); }
+.exec-stat .es-val.tone-muted { color: var(--ink-3); font-weight: 400; }
+.exec-stat .pf-team { font-size: 15px; }
+
+/* two-column panels + full-width panel */
+.exec-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+.exec-panel {
+  border: 0.5px solid var(--line-2); border-radius: 12px; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.exec-panel.full { margin-top: 16px; }
+.exec-panel-h {
+  display: flex; align-items: center; gap: 9px; white-space: nowrap;
+  padding: 13px 16px 12px; font-size: 13.5px; font-weight: 500; color: var(--ink-1);
+  letter-spacing: -0.005em; border-bottom: 2px solid var(--ep-accent, var(--line-2));
+  background: var(--win);
+}
+.exec-panel-h .eph-count {
+  margin-left: auto; font-size: 11px; font-weight: 500; color: var(--ink-3);
+  font-variant-numeric: tabular-nums; background: var(--surface-2);
+  height: 19px; min-width: 19px; padding: 0 6px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.exec-panel-body { padding: 14px 16px 16px; background: var(--ep-tint, var(--win)); flex: 1; }
+.exec-panel-body ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.exec-panel-body li { display: flex; gap: 10px; font-size: 13px; color: var(--ink-1); line-height: 1.5; }
+.exec-panel-body li .emk { flex-shrink: 0; margin-top: 1px; color: var(--ep-accent, var(--ink-3)); display: flex; }
+.exec-panel-body li .emk.glyph { font-weight: 500; line-height: 1.45; }
+.exec-empty { font-size: 12.5px; color: var(--ink-4); line-height: 1.5; }
+
+.exec-panel.completed { --ep-accent: var(--green); --ep-tint: var(--green-soft); }
+.exec-panel.next      { --ep-accent: var(--initiative); --ep-tint: var(--initiative-soft); }
+.exec-panel.disc      { --ep-accent: var(--amber); --ep-tint: var(--amber-soft); }
+
+/* edit-mode form (reuses .field/.input/.select/.textarea) */
+.exec-form .row2 { margin-bottom: 16px; }
+.exec-form .field:last-child { margin-bottom: 4px; }

@@ -195,12 +195,214 @@ function PfSidebar({ counts }) {
   );
 }
 
+/* ---- executive detail modal (view + inline edit) ----
+   Bound to the LIVE initiative object: saving calls onSave(id, patch) which
+   updates the shared `inits` source, so edits propagate to the Roadmap page
+   (timeline bars, initiative-detail completed/next/discussion), the cards,
+   metric tiles, status breakdown, pie chart, and filters simultaneously. */
+function ExecPanel({ kind, title, items, marker, emptyText, full }) {
+  const list = items || [];
+  return (
+    <div className={"exec-panel " + kind + (full ? " full" : "")}>
+      <div className="exec-panel-h">
+        {title}
+        <span className="eph-count">{list.length}</span>
+      </div>
+      <div className="exec-panel-body">
+        {list.length ? (
+          <ul>
+            {list.map((c, i) => (
+              <li key={i}>
+                <span className={"emk" + (marker.icon ? "" : " glyph")}>
+                  {marker.icon ? <Icon name="check" size={14} /> : marker.glyph}
+                </span>{c}
+              </li>
+            ))}
+          </ul>
+        ) : <div className="exec-empty">{emptyText}</div>}
+      </div>
+    </div>
+  );
+}
+
+function pfStatusOpts() {
+  return (window.STATUSES || []).map(s => ({ v: s.id, l: s.label }));
+}
+
+function buildPfForm(p) {
+  return {
+    name: p.name || "",
+    status: p.status || "",
+    objective: p.objective || "",
+    impactType: p.impactType || "",
+    estImpact: p.estImpact || "",
+    teamId: p.teamId || "",
+    due: p.due || "",
+    completedText: (p.completed || []).join("\n"),
+    nextText: (p.next || []).join("\n"),
+    discussionText: (p.discussion || []).join("\n"),
+  };
+}
+
+function PortfolioModal({ p, teams, onClose, onSave }) {
+  const [mode, setMode] = useStateP("view");
+  const [form, setForm] = useStateP(null);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  function enterEdit() { setForm(buildPfForm(p)); setMode("edit"); }
+  function save() {
+    onSave(p.id, {
+      name: form.name.trim() || p.name,
+      status: form.status,
+      objective: form.objective.trim(),
+      impactType: form.impactType.trim(),
+      estImpact: form.estImpact.trim(),
+      teamId: form.teamId,
+      due: form.due,
+      completed: form.completedText.split("\n").map(s => s.trim()).filter(Boolean),
+      next: form.nextText.split("\n").map(s => s.trim()).filter(Boolean),
+      discussion: form.discussionText.split("\n").map(s => s.trim()).filter(Boolean),
+    });
+    setMode("view");
+  }
+
+  const n = p.epics ? p.epics.length : 0;
+  const { note, noteType } = pfNote(p);
+  const targetTone = noteType === "done" ? "tone-done" : noteType === "muted" ? "tone-muted" : "";
+  const hasImpact = (p.estImpact || "").trim().length > 0;
+  const teamList = teams || [];
+
+  return (
+    <div className="scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal exec">
+        <div className="modal-head">
+          <div className="mh-main">
+            {mode === "edit"
+              ? <input className="input" style={{ fontSize: 18, fontWeight: 500 }} value={form.name} onChange={(e) => set("name", e.target.value)} />
+              : <div className="modal-title">{p.name}</div>}
+            <div className="modal-sub">
+              <span className="asg-sub">{n} epic{n === 1 ? "" : "s"}</span>
+              <PfPill status={mode === "edit" ? form.status : p.status} />
+            </div>
+          </div>
+          <div className="exec-head-actions">
+            {mode === "view" && (
+              <button className="exec-edit-btn" onClick={enterEdit}><Icon name="edit" size={13} />Edit</button>
+            )}
+            <button className="modal-x" onClick={onClose}><Icon name="x" size={14} /></button>
+          </div>
+        </div>
+
+        <div className="modal-body">
+          {mode === "view" ? (
+            <React.Fragment>
+              <p className="exec-desc">{(p.objective || "").trim() || "No objective set yet."}</p>
+
+              <div className="exec-strip">
+                <div className="exec-stat">
+                  <div className="es-lbl">Impact area</div>
+                  <div className={"es-val" + (p.impactType ? "" : " impact-none")}>{p.impactType || "—"}</div>
+                </div>
+                <div className="exec-stat">
+                  <div className="es-lbl">Estimated impact</div>
+                  <div className={"es-val" + (hasImpact ? "" : " impact-none")}>{hasImpact ? p.estImpact : "TBD"}</div>
+                </div>
+                <div className="exec-stat">
+                  <div className="es-lbl">Target release</div>
+                  <div className={"es-val " + targetTone}>{note}</div>
+                </div>
+                <div className="exec-stat">
+                  <div className="es-lbl">Team</div>
+                  <PfTeam teamId={p.teamId} teams={teams} />
+                </div>
+              </div>
+
+              <div className="exec-cols">
+                <ExecPanel kind="completed" title="Completed" items={p.completed}
+                  marker={{ icon: true }} emptyText="Nothing logged yet." />
+                <ExecPanel kind="next" title="Next steps" items={p.next}
+                  marker={{ glyph: "→" }} emptyText="Nothing planned yet." />
+              </div>
+              <ExecPanel kind="disc" title="Discussion points" items={p.discussion}
+                marker={{ glyph: "•" }} emptyText="No open questions." full />
+            </React.Fragment>
+          ) : (
+            <div className="exec-form">
+              <div className="row2" style={{ marginTop: 14 }}>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Impact area</label>
+                  <input className="input" value={form.impactType} onChange={(e) => set("impactType", e.target.value)} />
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Status</label>
+                  <select className="select" value={form.status} onChange={(e) => set("status", e.target.value)}>
+                    <option value="">No status</option>
+                    {pfStatusOpts().map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="field">
+                <label>Description</label>
+                <textarea className="textarea" style={{ minHeight: 60 }} value={form.objective} onChange={(e) => set("objective", e.target.value)} />
+              </div>
+              <div className="row2">
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Estimated impact</label>
+                  <input className="input" placeholder="e.g. +8% conversion" value={form.estImpact} onChange={(e) => set("estImpact", e.target.value)} />
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Team</label>
+                  <select className="select" value={form.teamId} onChange={(e) => set("teamId", e.target.value)}>
+                    <option value="">Unassigned</option>
+                    {teamList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="field">
+                <label>Target release date</label>
+                <input className="input" type="date" value={form.due} onChange={(e) => set("due", e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Completed — one per line</label>
+                <textarea className="textarea" value={form.completedText} onChange={(e) => set("completedText", e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Next steps — one per line</label>
+                <textarea className="textarea" value={form.nextText} onChange={(e) => set("nextText", e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Discussion points — one per line</label>
+                <textarea className="textarea" value={form.discussionText} onChange={(e) => set("discussionText", e.target.value)} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="modal-foot">
+          {mode === "view" ? (
+            <React.Fragment>
+              <button className="btn btn-ghost" onClick={onClose}>Close</button>
+              <button className="btn btn-primary" onClick={enterEdit}><Icon name="edit" size={14} />Edit overview</button>
+            </React.Fragment>
+          ) : (
+            <React.Fragment>
+              <button className="btn btn-ghost" onClick={() => setMode("view")}>Cancel</button>
+              <button className="btn btn-primary" onClick={save}><Icon name="check" size={14} />Save changes</button>
+            </React.Fragment>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---- page ---- */
-function PortfolioPage({ inits, teams, onOpenInitiative }) {
+function PortfolioPage({ inits, teams, onSaveInitiative }) {
   const [initF, setInitF] = useStateP([]);
   const [statF, setStatF] = useStateP([]);
   const [areaF, setAreaF] = useStateP([]);
   const [view, setView] = useStateP("list");
+  const [openId, setOpenId] = useStateP(null);
 
   const list = inits || [];
   const areas = [...new Set(list.map(p => p.impactType).filter(Boolean))];
@@ -216,6 +418,7 @@ function PortfolioPage({ inits, teams, onOpenInitiative }) {
   const anyFilter = initF.length || statF.length || areaF.length;
   // metric cards: Total + the first three configured statuses (dynamic)
   const metricStatuses = statuses.slice(0, 3);
+  const openItem = list.find(p => p.id === openId) || null;
 
   return (
     <div className="portfolio">
@@ -245,12 +448,17 @@ function PortfolioPage({ inits, teams, onOpenInitiative }) {
           <div className="pf-cards">
             {filtered.length === 0
               ? <div className="pf-empty"><b>No initiatives match</b>Try clearing a filter to see more.</div>
-              : filtered.map(p => <PfCard key={p.id} i={p} teams={teams} onOpen={() => onOpenInitiative(p.id)} />)}
+              : filtered.map(p => <PfCard key={p.id} i={p} teams={teams} onOpen={() => setOpenId(p.id)} />)}
           </div>
           <PfSidebar counts={counts} />
         </div>
       ) : (
-        <PfKanban filtered={filtered} teams={teams} onOpenInitiative={onOpenInitiative} />
+        <PfKanban filtered={filtered} teams={teams} onOpenInitiative={setOpenId} />
+      )}
+
+      {openItem && (
+        <PortfolioModal p={openItem} teams={teams}
+          onClose={() => setOpenId(null)} onSave={onSaveInitiative} />
       )}
     </div>
   );
